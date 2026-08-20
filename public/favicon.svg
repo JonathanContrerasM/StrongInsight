@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="7" fill="#0B0D10"/>
+  <!-- Rising bars: the app's whole subject in one mark. -->
+  <rect x="6"  y="19" width="4" height="7"  rx="1" fill="#5D880D"/>
+  <rect x="12" y="14" width="4" height="12" rx="1" fill="#8CB222"/>
+  <rect x="18" y="9"  width="4" height="17" rx="1" fill="#A8CE3D"/>
+  <rect x="24" y="5"  width="4" height="21" rx="1" fill="#C3F53C"/>
+</svg>

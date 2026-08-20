@@ -1,12 +1,11 @@
 import { useCallback, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { niceTicks } from '../derive/stats';
+import { AXIS, AXIS_TEXT } from './colour';
+import { Card, EmptyState, SegmentedControl, Badge } from '../ui/primitives';
 import type { LinearScale } from './scale';
 
 /** Axes, legends, tooltip and the shared empty state. */
-
-const AXIS_INK = '#94a3b8';
-const AXIS_TEXT = '#64748b';
 
 export function AxisLeft({
   scale,
@@ -27,8 +26,15 @@ export function AxisLeft({
         const y = scale(t);
         return (
           <g key={t} transform={'translate(0,' + y + ')'}>
-            <line x1={0} x2={innerW} stroke={AXIS_INK} strokeOpacity={0.25} />
-            <text x={-8} dy="0.32em" textAnchor="end" fontSize={10} fill={AXIS_TEXT} className="tabular-nums">
+            <line x1={0} x2={innerW} stroke={AXIS} strokeOpacity={0.25} />
+            <text
+              x={-8}
+              dy="0.32em"
+              textAnchor="end"
+              fontSize={10}
+              fill={AXIS_TEXT}
+              className="num"
+            >
               {format(t)}
             </text>
           </g>
@@ -47,7 +53,7 @@ export function AxisBottom({
 }) {
   return (
     <g transform={'translate(0,' + innerH + ')'}>
-      <line x1={0} x2={0} stroke={AXIS_INK} />
+      <line x1={0} x2={0} stroke={AXIS} />
       {ticks.map((t, i) => (
         <text
           key={i}
@@ -56,7 +62,7 @@ export function AxisBottom({
           textAnchor="middle"
           fontSize={10}
           fill={AXIS_TEXT}
-          className="tabular-nums"
+          className="num"
         >
           {t.label}
         </text>
@@ -71,7 +77,10 @@ export type TooltipState = { x: number; y: number; content: ReactNode } | null;
 
 export function useTooltip() {
   const [tip, setTip] = useState<TooltipState>(null);
-  const show = useCallback((x: number, y: number, content: ReactNode) => setTip({ x, y, content }), []);
+  const show = useCallback(
+    (x: number, y: number, content: ReactNode) => setTip({ x, y, content }),
+    [],
+  );
   const hide = useCallback(() => setTip(null), []);
   return { tip, show, hide };
 }
@@ -80,6 +89,9 @@ export function useTooltip() {
  * Rendered as HTML in a portal rather than as SVG text: it lets the tooltip reuse
  * Tailwind, wrap long exercise names, and carry the same "unverified" badge
  * markup the rest of the app uses.
+ *
+ * Because it portals to document.body it sits OUTSIDE the app tree, which is why
+ * the theme class has to live on <html> rather than on the app root.
  */
 /**
  * NOTE: this is `position: fixed`, so `state.x`/`state.y` MUST be viewport
@@ -96,7 +108,7 @@ export function Tooltip({ state }: { state: TooltipState }) {
   const flipY = state.y > window.innerHeight - 160;
   return createPortal(
     <div
-      className="pointer-events-none fixed z-50 max-w-xs rounded border border-slate-300 bg-white px-2 py-1.5 text-xs shadow-lg"
+      className="pointer-events-none fixed z-50 max-w-xs rounded-lg border border-line-strong bg-raised px-2.5 py-2 text-xs text-ink shadow-lg"
       style={{
         left: flipX ? undefined : state.x + PAD,
         right: flipX ? window.innerWidth - state.x + PAD : undefined,
@@ -118,9 +130,9 @@ export function CategoricalLegend({
   items: Array<{ label: string; color: string; muted?: boolean }>;
 }) {
   return (
-    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
+    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-dim">
       {items.map((it) => (
-        <span key={it.label} className="inline-flex items-center gap-1">
+        <span key={it.label} className="inline-flex items-center gap-1.5">
           <span
             className="inline-block h-2.5 w-2.5 rounded-sm"
             style={{ background: it.color, opacity: it.muted ? 0.55 : 1 }}
@@ -151,12 +163,12 @@ export function BinLegend({
   highLabel?: string;
 }) {
   return (
-    <div className="flex items-center gap-1.5 text-xs text-slate-500">
+    <div className="flex items-center gap-1.5 text-xs text-faint">
       <span>{lowLabel}</span>
       {colors.map((c, i) => (
         <span
           key={i}
-          className="inline-block h-3 w-4 rounded-sm border border-slate-200"
+          className="inline-block h-3 w-4 rounded-sm border border-line"
           style={{ background: c }}
           title={ranges[i] ? format(ranges[i]![0]) + ' - ' + format(ranges[i]![1]) : undefined}
         />
@@ -170,13 +182,13 @@ export function BinLegend({
 
 /** Never render an empty chart frame: say what is missing and how much is needed. */
 export function NotEnoughData({ need }: { need: string }) {
-  return (
-    <div className="flex h-full min-h-24 items-center justify-center rounded border border-dashed border-slate-200 p-4 text-center text-sm text-slate-500">
-      {need}
-    </div>
-  );
+  return <EmptyState>{need}</EmptyState>;
 }
 
+/**
+ * A chart in a card. Thin wrapper over the shared `Card` so every chart header
+ * in the app is laid out identically.
+ */
 export function ChartCard({
   title,
   subtitle,
@@ -191,17 +203,9 @@ export function ChartCard({
   note?: ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-4">
-      <header className="mb-3 flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
-          {subtitle && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}
-        </div>
-        {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
-      </header>
+    <Card title={title} subtitle={subtitle} actions={actions} note={note}>
       {children}
-      {note && <p className="mt-2 text-xs text-slate-500">{note}</p>}
-    </section>
+    </Card>
   );
 }
 
@@ -221,41 +225,25 @@ export function UnverifiedChip({
   if (unconfirmed === 0 || total === 0) return null;
   const pct = Math.round((unconfirmed / total) * 100);
   return (
-    <button
-      type="button"
+    <Badge
+      tone="warn"
+      dot
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-900 hover:bg-amber-200"
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick?.();
+        }
+      }}
+      className="cursor-pointer hover:brightness-110"
       title="These groupings rely on exercise tags that are still heuristic guesses"
     >
-      {pct}% unverified tags
-    </button>
+      {pct}% unverified
+    </Badge>
   );
 }
 
-export function Toggle<T extends string>({
-  value,
-  options,
-  onChange,
-}: {
-  value: T;
-  options: Array<{ value: T; label: string }>;
-  onChange: (v: T) => void;
-}) {
-  return (
-    <div className="inline-flex overflow-hidden rounded border border-slate-300">
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          onClick={() => onChange(o.value)}
-          className={
-            'px-2 py-1 text-xs font-medium ' +
-            (o.value === value ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-50')
-          }
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}
+/** Kept as the chart-side name for the shared segmented control. */
+export const Toggle = SegmentedControl;

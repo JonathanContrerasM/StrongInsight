@@ -3,7 +3,17 @@ import type { VolumeMatrix } from '../derive/balance';
 import type { BalancePoint } from '../derive/balance';
 import type { LoadSplitPoint, SessionBest, SmoothedSessionBest } from '../derive/series';
 import { segmentByGap } from '../derive/stats';
-import { categorical, NEUTRAL_INK } from '../charts/colour';
+import {
+  categorical,
+  NEUTRAL_INK,
+  PRIMARY,
+  PRIMARY_SOFT,
+  CONTRAST,
+  GOOD,
+  MUTED,
+  BAND,
+  AXIS,
+} from '../charts/colour';
 import { ChartFrame, HoverLayer } from '../charts/ChartFrame';
 import { AxisLeft, NotEnoughData, Tooltip, useTooltip } from '../charts/parts';
 import { bandScale, linearScale, timeScale } from '../charts/scale';
@@ -48,7 +58,7 @@ export function StackedVolume({
 
   return (
     <div>
-      <ChartFrame height={height} label="Volume over time by muscle group">
+      <ChartFrame height={height} corners label="Volume over time by muscle group">
         {({ innerW, innerH }) => {
           const x = bandScale(matrix.buckets.length, [0, innerW], 0.15);
           const y = linearScale([0, toDisplayWeight(maxTotal, unit)], [innerH, 0]);
@@ -103,7 +113,7 @@ export function StackedVolume({
                     pos.clientY,
                     <div className="space-y-0.5">
                       <div className="font-medium">Week of {formatDate(b.start)}</div>
-                      <div className="text-slate-600">
+                      <div className="text-dim">
                         {formatVolume(matrix.bucketTotals[i] ?? 0, unit)} total
                       </div>
                       {order
@@ -111,7 +121,7 @@ export function StackedVolume({
                         .filter((r) => r.v > 0)
                         .slice(0, 6)
                         .map((r) => (
-                          <div key={r.g} className="text-slate-500">
+                          <div key={r.g} className="text-dim">
                             {r.g}: {formatVolume(r.v, unit)}
                           </div>
                         ))}
@@ -123,7 +133,7 @@ export function StackedVolume({
           );
         }}
       </ChartFrame>
-      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
+      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-dim">
         {order.map(({ g }, idx) => (
           <span key={g} className="inline-flex items-center gap-1">
             <span
@@ -182,7 +192,7 @@ export function ProgressionChart({
 
   return (
     <div>
-      <ChartFrame height={height} label="Strength progression">
+      <ChartFrame height={height} corners label="Strength progression">
         {({ innerW, innerH }) => {
           const x = timeScale([first, last], [0, innerW]);
           const y = linearScale([0, maxV * 1.08], [innerH, 0]);
@@ -217,7 +227,7 @@ export function ProgressionChart({
                     key={'h' + i}
                     d={pathFor(seg.points, (p) => p.heaviestKg)}
                     fill="none"
-                    stroke="#cbd5e1"
+                    stroke={MUTED}
                     strokeWidth={1.5}
                   />
                 ))}
@@ -229,7 +239,7 @@ export function ProgressionChart({
                     cx={x(p.date)}
                     cy={y(toDisplayWeight(p.bestE1rmKg, unit))}
                     r={2}
-                    fill="#93c5fd"
+                    fill={PRIMARY_SOFT}
                   />
                 ),
               )}
@@ -239,7 +249,7 @@ export function ProgressionChart({
                   key={'s' + i}
                   d={pathFor(seg.points, (p) => p.smoothedE1rmKg)}
                   fill="none"
-                  stroke="#2563eb"
+                  stroke={PRIMARY}
                   strokeWidth={2}
                 />
               ))}
@@ -249,7 +259,7 @@ export function ProgressionChart({
                   key={'p' + i}
                   d={pathFor(seg.points, (p) => p.prE1rmKg)}
                   fill="none"
-                  stroke="#16a34a"
+                  stroke={GOOD}
                   strokeWidth={1.5}
                   strokeDasharray="4 3"
                 />
@@ -278,20 +288,20 @@ export function ProgressionChart({
                     <div className="space-y-0.5">
                       <div className="font-medium">{formatDate(p.date)}</div>
                       {p.bestE1rmKg !== null && (
-                        <div className="text-slate-600">
+                        <div className="text-dim">
                           Best e1RM {formatWeight(p.bestE1rmKg, unit, 1)}
                         </div>
                       )}
                       {p.heaviestKg !== null && (
-                        <div className="text-slate-600">
+                        <div className="text-dim">
                           Heaviest {formatWeight(p.heaviestKg, unit, 1)}
                         </div>
                       )}
                       {p.modalReps !== null && (
-                        <div className="text-slate-500">Mostly {p.modalReps}-rep sets</div>
+                        <div className="text-dim">Mostly {p.modalReps}-rep sets</div>
                       )}
                       {p.skippedSets > 0 && (
-                        <div className="text-slate-400">
+                        <div className="text-faint">
                           {p.skippedSets} set(s) not usable for e1RM
                         </div>
                       )}
@@ -304,13 +314,13 @@ export function ProgressionChart({
         }}
       </ChartFrame>
 
-      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
-        <Swatch color="#93c5fd" label="session best e1RM" />
-        <Swatch color="#2563eb" label="rolling median (trend)" />
-        <Swatch color="#16a34a" label="personal best" dashed />
-        {showHeaviest && <Swatch color="#cbd5e1" label="heaviest actual load" />}
+      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-dim">
+        <Swatch color={PRIMARY_SOFT} label="session best e1RM" />
+        <Swatch color={PRIMARY} label="rolling median (trend)" />
+        <Swatch color={GOOD} label="personal best" dashed />
+        {showHeaviest && <Swatch color={MUTED} label="heaviest actual load" />}
       </div>
-      <p className="mt-1 text-xs text-slate-500">
+      <p className="mt-1 text-xs text-dim">
         Trend is a rolling <strong>median</strong> across sessions, so deload weeks do not drag it
         down. Lines break across gaps longer than {MAX_GAP_DAYS} days rather than inventing progress.
       </p>
@@ -361,7 +371,7 @@ export function LoadSplitChart({
 
   return (
     <div>
-      <ChartFrame height={height} label="Bodyweight versus added load">
+      <ChartFrame height={height} corners label="Bodyweight versus added load">
         {({ innerW, innerH }) => {
           const x = bandScale(points.length, [0, innerW], 0.15);
           const y = linearScale([0, maxV * 1.1], [innerH, 0]);
@@ -381,7 +391,7 @@ export function LoadSplitChart({
                       y={yBase}
                       width={x.bandwidth}
                       height={Math.max(0, innerH - yBase)}
-                      fill="#93c5fd"
+                      fill={PRIMARY_SOFT}
                     />
                     {added > 0 && (
                       <rect
@@ -389,7 +399,7 @@ export function LoadSplitChart({
                         y={yTop}
                         width={x.bandwidth}
                         height={Math.max(0, yBase - yTop)}
-                        fill="#ea580c"
+                        fill={CONTRAST}
                       />
                     )}
                   </g>
@@ -411,13 +421,13 @@ export function LoadSplitChart({
                     pos.clientY,
                     <div className="space-y-0.5">
                       <div className="font-medium">{formatDate(p.start)}</div>
-                      <div className="text-slate-600">
+                      <div className="text-dim">
                         Bodyweight {formatWeight(p.bodyweightKg, unit, 1)}
                       </div>
-                      <div className="text-slate-600">
+                      <div className="text-dim">
                         Added {formatWeight(p.addedKg, unit, 1)} (mean over {p.setCount} sets)
                       </div>
-                      <div className="text-slate-500">
+                      <div className="text-dim">
                         {p.loadedSetCount} of {p.setCount} sets carried extra load
                       </div>
                     </div>,
@@ -428,9 +438,9 @@ export function LoadSplitChart({
           );
         }}
       </ChartFrame>
-      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
-        <Swatch color="#93c5fd" label="bodyweight component" />
-        <Swatch color="#ea580c" label="added load" />
+      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-dim">
+        <Swatch color={PRIMARY_SOFT} label="bodyweight component" />
+        <Swatch color={CONTRAST} label="added load" />
       </div>
       <Tooltip state={tip} />
     </div>
@@ -465,7 +475,7 @@ export function BalanceChart({
 
   return (
     <div>
-      <ChartFrame height={height} label={'Balance: ' + labels.join(' versus ')}>
+      <ChartFrame height={height} corners label={'Balance: ' + labels.join(' versus ')}>
         {({ innerW, innerH }) => {
           const x = bandScale(points.length, [0, innerW], 0.15);
           const y = linearScale([-maxAbs, maxAbs], [innerH, 0]);
@@ -475,8 +485,8 @@ export function BalanceChart({
           const bandBottom = y(-0.32);
           return (
             <>
-              <rect x={0} y={bandTop} width={innerW} height={bandBottom - bandTop} fill="#f1f5f9" />
-              <line x1={0} x2={innerW} y1={zero} y2={zero} stroke="#94a3b8" />
+              <rect x={0} y={bandTop} width={innerW} height={bandBottom - bandTop} fill={BAND} />
+              <line x1={0} x2={innerW} y1={zero} y2={zero} stroke={AXIS} />
               {points.map((p, i) => {
                 const v = p[metric];
                 if (v === null) return null;
@@ -488,7 +498,7 @@ export function BalanceChart({
                     y={Math.min(py, zero)}
                     width={x.bandwidth}
                     height={Math.max(1, Math.abs(py - zero))}
-                    fill={v >= 0 ? '#2563eb' : '#ea580c'}
+                    fill={v >= 0 ? PRIMARY : CONTRAST}
                   />
                 );
               })}
@@ -510,13 +520,13 @@ export function BalanceChart({
                     pos.clientY,
                     <div className="space-y-0.5">
                       <div className="font-medium">{formatDate(p.start)}</div>
-                      <div className="text-slate-600">
+                      <div className="text-dim">
                         {ratio >= 1
                           ? ratio.toFixed(2) + '× more ' + labels[0]
                           : (1 / ratio).toFixed(2) + '× more ' + labels[1]}
                       </div>
                       {p.unconfirmedSets > 0 && (
-                        <div className="text-amber-700">
+                        <div className="text-warn">
                           {p.unconfirmedSets} of {p.setCount} sets use unverified tags
                         </div>
                       )}
@@ -528,10 +538,10 @@ export function BalanceChart({
           );
         }}
       </ChartFrame>
-      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
-        <Swatch color="#2563eb" label={'more ' + labels[0]} />
-        <Swatch color="#ea580c" label={'more ' + labels[1]} />
-        <span className="text-slate-400">grey band = within 1.25×, i.e. balanced</span>
+      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-dim">
+        <Swatch color={PRIMARY} label={'more ' + labels[0]} />
+        <Swatch color={CONTRAST} label={'more ' + labels[1]} />
+        <span className="text-faint">grey band = within 1.25×, i.e. balanced</span>
       </div>
       <Tooltip state={tip} />
     </div>
@@ -583,7 +593,7 @@ export function SessionPeaksChart({
 
   return (
     <div>
-      <ChartFrame height={height} label="Heaviest load and volume per session">
+      <ChartFrame height={height} corners label="Heaviest load and volume per session">
         {({ innerW, innerH }) => {
           const loadH = Math.max(20, (innerH - GUTTER) * 0.58);
           const volH = Math.max(16, innerH - GUTTER - loadH);
@@ -630,16 +640,16 @@ export function SessionPeaksChart({
           const tipFor = (p: SessionBest) => (
             <div className="space-y-0.5">
               <div className="font-medium">{formatDate(p.date)}</div>
-              <div className="text-slate-600">
+              <div className="text-dim">
                 Heaviest {p.heaviestKg === null ? 'n/a' : formatWeight(p.heaviestKg, unit, 1)}
               </div>
-              <div className="text-slate-600">Volume {formatVolume(p.volumeKg, unit)}</div>
-              <div className="text-slate-500">
+              <div className="text-dim">Volume {formatVolume(p.volumeKg, unit)}</div>
+              <div className="text-dim">
                 {p.setCount} set{p.setCount === 1 ? '' : 's'}
                 {p.modalReps !== null && ' · mostly ' + p.modalReps + ' reps'}
               </div>
               {p.volumeKg === 0 && (
-                <div className="text-amber-700">No countable load this session</div>
+                <div className="text-warn">No countable load this session</div>
               )}
             </div>
           );
@@ -648,7 +658,7 @@ export function SessionPeaksChart({
             <>
               {/* facet 1: heaviest load */}
               <AxisLeft scale={yLoad} innerW={innerW} tickCount={4} />
-              <path d={loadPath} fill="none" stroke="#2563eb" strokeWidth={2} />
+              <path d={loadPath} fill="none" stroke={PRIMARY} strokeWidth={2} />
               {points.map((p) =>
                 p.heaviestKg === null ? null : (
                   <circle
@@ -656,7 +666,7 @@ export function SessionPeaksChart({
                     cx={x(p.date)}
                     cy={yLoad(toDisplayWeight(p.heaviestKg, unit))}
                     r={2.5}
-                    fill="#2563eb"
+                    fill={PRIMARY}
                   />
                 ),
               )}
@@ -678,7 +688,7 @@ export function SessionPeaksChart({
                       y={py}
                       width={barW}
                       height={Math.max(0, volH - py)}
-                      fill="#93c5fd"
+                      fill={PRIMARY_SOFT}
                     />
                   );
                 })}
@@ -699,14 +709,14 @@ export function SessionPeaksChart({
         }}
       </ChartFrame>
 
-      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
-        <Swatch color="#2563eb" label="heaviest load in the session" />
+      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-dim">
+        <Swatch color={PRIMARY} label="heaviest load in the session" />
         <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: '#93c5fd' }} />
+          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: PRIMARY_SOFT }} />
           session volume
         </span>
       </div>
-      <p className="mt-1 text-xs text-slate-500">
+      <p className="mt-1 text-xs text-dim">
         Separate scales on purpose: the heaviest set and the total work done are different
         questions, and your heaviest session is often not your hardest one.
       </p>

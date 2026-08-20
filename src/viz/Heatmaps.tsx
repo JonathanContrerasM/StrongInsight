@@ -1,7 +1,15 @@
 import { useMemo } from 'react';
 import type { VolumeMatrix } from '../derive/balance';
 import type { HabitMap, LoadRepDensity } from '../derive/profile';
-import { diverging, sequential, EMPTY_FILL, EMPTY_STROKE } from '../charts/colour';
+import {
+  diverging,
+  sequential,
+  EMPTY_FILL,
+  EMPTY_STROKE,
+  AXIS,
+  INK_DIM,
+  FLAG,
+} from '../charts/colour';
 import { ChartCard, NotEnoughData, Tooltip, useTooltip } from '../charts/parts';
 import { sqrtScale } from '../charts/scale';
 import { formatVolume, formatWeight } from '../format';
@@ -59,7 +67,7 @@ export function MuscleHeatmap({
     const bucketTotal = matrix.bucketTotals[bi] ?? 0;
     // Distinguish "no session that week" from "trained but nothing for this muscle".
     if (bucketTotal === 0) return EMPTY_FILL;
-    if (!c || c.volumeKg <= 0) return '#f1f5f9';
+    if (!c || c.volumeKg <= 0) return EMPTY_FILL;
     if (scaleMode === 'absolute') {
       return sequential(matrix.maxCell > 0 ? 0.1 + (c.volumeKg / matrix.maxCell) * 0.9 : 0.1);
     }
@@ -82,7 +90,7 @@ export function MuscleHeatmap({
               dy="0.32em"
               textAnchor="end"
               fontSize={10}
-              fill={g === 'unknown' ? '#94a3b8' : '#475569'}
+              fill={g === 'unknown' ? AXIS : INK_DIM}
               fontStyle={g === 'unknown' ? 'italic' : undefined}
             >
               {g}
@@ -105,7 +113,7 @@ export function MuscleHeatmap({
                     height={rowH - 1}
                     fill={fillFor(gi, bi)}
                     // Amber ring: this cell leans on tags that are still guesses.
-                    stroke={unconfirmed >= 0.25 ? '#f59e0b' : undefined}
+                    stroke={unconfirmed >= 0.25 ? FLAG : undefined}
                     strokeWidth={unconfirmed >= 0.25 ? 1 : 0}
                     onMouseEnter={(e) =>
                       show(
@@ -115,15 +123,15 @@ export function MuscleHeatmap({
                           <div className="font-medium">
                             {g} &middot; week of {b.start.toLocaleDateString()}
                           </div>
-                          <div className="text-slate-600">
+                          <div className="text-dim">
                             {c && c.volumeKg > 0 ? formatVolume(c.volumeKg, unit) : 'no volume'}
                             {c && c.setCount > 0 && ' from ' + c.setCount + ' sets'}
                           </div>
                           {(matrix.bucketTotals[bi] ?? 0) === 0 && (
-                            <div className="text-slate-500">No sessions this week</div>
+                            <div className="text-dim">No sessions this week</div>
                           )}
                           {unconfirmed >= 0.25 && (
-                            <div className="text-amber-700">
+                            <div className="text-warn">
                               {c?.unconfirmedSets} of {c?.setCount} sets use unverified tags
                             </div>
                           )}
@@ -139,14 +147,14 @@ export function MuscleHeatmap({
         </svg>
       </div>
 
-      <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
+      <div className="flex flex-wrap items-center gap-4 text-xs text-dim">
         {scaleMode === 'relative' ? (
           <span className="inline-flex items-center gap-1.5">
             <span>below your norm</span>
             {[-1, -0.5, 0, 0.5, 1].map((t) => (
               <span
                 key={t}
-                className="inline-block h-3 w-4 rounded-sm border border-slate-200"
+                className="inline-block h-3 w-4 rounded-sm border border-line"
                 style={{ background: diverging(t) }}
               />
             ))}
@@ -158,7 +166,7 @@ export function MuscleHeatmap({
             {[0.1, 0.3, 0.5, 0.7, 1].map((t) => (
               <span
                 key={t}
-                className="inline-block h-3 w-4 rounded-sm border border-slate-200"
+                className="inline-block h-3 w-4 rounded-sm border border-line"
                 style={{ background: sequential(t) }}
               />
             ))}
@@ -173,7 +181,7 @@ export function MuscleHeatmap({
           no sessions
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-3 w-3 rounded-sm" style={{ background: '#f1f5f9' }} />
+          <span className="inline-block h-3 w-3 rounded-sm" style={{ background: EMPTY_FILL }} />
           trained, none for this muscle
         </span>
       </div>
@@ -195,18 +203,18 @@ export function HabitHeatmap({ habit, weekStartsOn }: { habit: HabitMap; weekSta
     const max = Math.max(...habit.weekdayTotals, 1);
     return (
       <div className="space-y-2">
-        <p className="text-xs text-amber-700">
+        <p className="text-xs text-warn">
           This export has no time-of-day information, so only the weekday pattern is shown.
         </p>
         <div className="space-y-1">
           {orderDays(weekStartsOn).map((d) => (
             <div key={d} className="flex items-center gap-2 text-xs">
-              <span className="w-8 text-slate-500">{WEEKDAYS[d]}</span>
+              <span className="w-8 text-dim">{WEEKDAYS[d]}</span>
               <div
-                className="h-3 rounded-sm bg-blue-500"
+                className="h-3 rounded-sm bg-accent"
                 style={{ width: ((habit.weekdayTotals[d] ?? 0) / max) * 100 + '%' }}
               />
-              <span className="tabular-nums text-slate-500">{habit.weekdayTotals[d] ?? 0}</span>
+              <span className="tabular-nums text-dim">{habit.weekdayTotals[d] ?? 0}</span>
             </div>
           ))}
         </div>
@@ -236,12 +244,12 @@ export function HabitHeatmap({ habit, weekStartsOn }: { habit: HabitMap; weekSta
           aria-label="Training time habits"
         >
           {hours.map((h, i) => (
-            <text key={h} x={labelW + i * cellW + cellW / 2} y={10} fontSize={9} textAnchor="middle" fill="#94a3b8">
+            <text key={h} x={labelW + i * cellW + cellW / 2} y={10} fontSize={9} textAnchor="middle" fill={AXIS}>
               {h}
             </text>
           ))}
           {days.map((d, di) => (
-            <text key={d} x={labelW - 6} y={16 + di * cellH + cellH / 2} dy="0.32em" fontSize={10} textAnchor="end" fill="#475569">
+            <text key={d} x={labelW - 6} y={16 + di * cellH + cellH / 2} dy="0.32em" fontSize={10} textAnchor="end" fill={INK_DIM}>
               {WEEKDAYS[d]}
             </text>
           ))}
@@ -267,7 +275,7 @@ export function HabitHeatmap({ habit, weekStartsOn }: { habit: HabitMap; weekSta
                           <div className="font-medium">
                             {WEEKDAYS[d]} at {String(h).padStart(2, '0')}:00
                           </div>
-                          <div className="text-slate-600">
+                          <div className="text-dim">
                             {count} session{count === 1 ? '' : 's'}
                           </div>
                         </div>,
@@ -281,7 +289,7 @@ export function HabitHeatmap({ habit, weekStartsOn }: { habit: HabitMap; weekSta
           </g>
         </svg>
       </div>
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-dim">
         Hours cropped to {String(h0).padStart(2, '0')}:00&ndash;{String(h1).padStart(2, '0')}:00, the
         range you actually train in. Empty cells are genuinely zero.
       </p>
@@ -326,7 +334,7 @@ export function DensityHeatmap({
       <div className="overflow-x-auto">
         <svg width={width} height={height} role="img" aria-label="Weight by reps density">
           {reps.map((r, i) => (
-            <text key={r} x={labelW + i * cellW + cellW / 2} y={10} fontSize={9} textAnchor="middle" fill="#94a3b8">
+            <text key={r} x={labelW + i * cellW + cellW / 2} y={10} fontSize={9} textAnchor="middle" fill={AXIS}>
               {r}
             </text>
           ))}
@@ -334,7 +342,7 @@ export function DensityHeatmap({
             // Heaviest at the top, which is how lifters read a load axis.
             const row = loadBins - 1 - b;
             return (
-              <text key={b} x={labelW - 6} y={18 + b * cellH + cellH / 2} dy="0.32em" fontSize={9} textAnchor="end" fill="#475569" className="tabular-nums">
+              <text key={b} x={labelW - 6} y={18 + b * cellH + cellH / 2} dy="0.32em" fontSize={9} textAnchor="end" fill={INK_DIM} className="tabular-nums">
                 {formatWeight(density.loadEdges[row] ?? 0, unit, 0)}
               </text>
             );
@@ -362,7 +370,7 @@ export function DensityHeatmap({
                           {formatWeight(density.loadEdges[c.loadBin] ?? 0, unit, 0)}&ndash;
                           {formatWeight(density.loadEdges[c.loadBin + 1] ?? 0, unit, 0)} &times; {c.repBin} reps
                         </div>
-                        <div className="text-slate-600">{c.setCount} sets</div>
+                        <div className="text-dim">{c.setCount} sets</div>
                       </div>,
                     )
                   }
@@ -371,7 +379,7 @@ export function DensityHeatmap({
               );
             })}
           </g>
-          <text x={labelW} y={height - 2} fontSize={9} fill="#94a3b8">
+          <text x={labelW} y={height - 2} fontSize={9} fill={AXIS}>
             reps &rarr;
           </text>
         </svg>

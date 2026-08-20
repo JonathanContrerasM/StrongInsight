@@ -317,14 +317,19 @@ having is a handful of scales, which are ~150 lines that now live in the pure, t
 codebase.
 
 ```
+src/ui/       design tokens made concrete: Card, Tile, Button, Field, Badge, theme  -- imports nothing but React
 src/charts/   scale, colour, ChartFrame + HoverLayer, parts (axes, tooltip, legends)  -- no domain knowledge
 src/viz/      the charts themselves: derive output -> chart primitives
 src/derive/   buckets, stats, series, balance, profile, cooccurrence  -- all PURE
 src/store/useAnalytics.ts   corpus-wide memos, strictly below the existing M1-M5 graph
 ```
 
-`src/charts/` must never import from `model/` or `derive/`. If a primitive needs to know what a
-`Muscle` is, it is in the wrong layer.
+`src/charts/` must never import **domain types** from `model/`. If a primitive needs to know what
+a `Muscle` is, it is in the wrong layer. Pure maths is fine and is why `colour.ts` and `parts.tsx`
+import from `derive/stats`.
+
+`src/ui/` sits strictly below `charts/`: it holds the generic, domain-free chrome that views and
+charts both need, so neither has to reach into the other for a button.
 
 ## The recovered training split
 
@@ -442,10 +447,61 @@ sorted canonical names per workout) rather than on `sets` or `meta`. Canonical n
 when an *alias* changes, so editing a muscle tag never re-runs it — and `enrichSets`, which does
 re-run, costs 2.5 ms.
 
+## The design system, and dark mode
+
+Everything visual resolves through semantic tokens defined once in `src/index.css`. There are no
+`slate-*` utilities and no hex literals anywhere in `src/` — a lint-able property, and
+`grep -rn --text -E "(text|bg|border)-(slate|amber|blue)-[0-9]" src` is expected to return nothing.
+(The `--text` flag matters: `store/useWorkoutData.tsx` contains a literal NUL byte, so ripgrep
+treats it as binary and skips it by default.)
+
+**Three layers, and the order is the whole trick:**
+
+1. `:root` and `:root.dark` define the raw `--c-*` and `--chart-*` values. These are the only
+   things that change between themes.
+2. `@theme inline { --color-surface: var(--c-surface); ... }` maps Tailwind utility names onto
+   them. **The `inline` keyword is load-bearing** — a plain `@theme` block resolves its values at
+   build time, which would bake the light palette into every utility and make the dark swap a
+   silent no-op. With it, `bg-surface` compiles to `background-color: var(--c-surface)` and
+   re-resolves at the use site.
+3. Components use ordinary utilities (`bg-surface`, `text-dim`, `border-line`). Almost nothing in
+   the app needs a `dark:` variant, because the tokens already swap themselves.
+
+`:root.dark` rather than `.dark` is deliberate: both would be specificity (0,1,0) against the
+`:root` block Tailwind also emits, leaving the swap dependent on source order.
+
+**Theme selection** is Light / Dark / System, stored in `localStorage` under
+`stronginsight:theme`. It is deliberately *not* part of `Settings`: settings load asynchronously
+from IndexedDB, and anything read asynchronously arrives too late to prevent a white flash. An
+inline script in `index.html` resolves the preference and stamps the class before first paint.
+That class must go on `<html>` — the chart tooltip portals to `document.body`, outside the React
+tree, and would otherwise stay light. Appearance is per-device and is not cleared by
+*Reset everything*.
+
+**Chart colour** is the same tokens by another route. `charts/colour.ts` emits
+`var(--chart-*)` references rather than hex, so all 14 charts re-theme with no React plumbing and
+no re-render. It still honours its original "testable in Node" contract: it *emits* variable
+references, it never *reads* them, and every function stays a pure string mapping.
+
+Two rules the palette must satisfy, both locked by `charts/palette.test.ts`:
+
+- **Ramps are ordered least-intense to most-intense in both themes.** `quantileBinner` skips the
+  weakest step so the lowest bin still reads as "trained", which is only meaningful if index 0
+  really is the weakest. Light runs pale-to-deep and dark runs near-black-to-lime, so raw
+  luminance moves in *opposite* directions — contrast against the surface is the invariant that
+  holds for both.
+- **The diverging midpoint is the quietest colour in its ramp.** Reusing the light ramp's
+  near-white neutral on a near-black card would make "no imbalance" the loudest thing on screen.
+
+That test parses `index.css` directly rather than asserting against a JavaScript copy, so it
+cannot drift from what actually ships. It also checks WCAG contrast for every text token and
+verifies that the hard-coded colours in the boot script still match `--c-canvas` — the one
+unavoidable duplication in the system.
+
 ## Out of scope in this iteration
 
 The insights engine, PR/stagnation detection, volume landmarks, body diagrams, DuckDB/SQL, any
-backend or sync, dark mode. Linked brushing is limited to a date range; full crossfilter and
+backend or sync. Linked brushing is limited to a date range; full crossfilter and
 re-clustering on a brushed subset are deliberately deferred — the latter is unstable across brush
 positions and reads as a bug. Where a decision would constrain later work, the code carries a
 `// FUTURE:` comment rather than building ahead of scope.

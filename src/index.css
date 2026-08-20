@@ -1,1 +1,296 @@
 @import "tailwindcss";
+
+/*
+ * Design tokens for the two themes.
+ *
+ * Three layers, and the order matters:
+ *   1. `:root` / `.dark` define the RAW values. These are the only things that
+ *      swap at runtime.
+ *   2. `@theme inline` maps Tailwind utility names onto those raw variables.
+ *      The `inline` keyword is load-bearing: a plain `@theme` block resolves its
+ *      values at BUILD time, which would bake the light palette into every
+ *      utility and make the `.dark` swap a silent no-op.
+ *   3. Base and component styles below consume the utilities.
+ *
+ * Lime is an accent SURFACE, not accent text -- near-black ink sits on it in
+ * both themes. `--c-accent-ink` is the separate token for lime used as text or
+ * as a chart stroke, because #C3F53C on white is unreadable.
+ */
+
+/* Class-based rather than media-based, so a manual override beats the OS. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light;
+
+  --c-canvas: #f5f6f8;
+  --c-surface: #ffffff;
+  --c-surface-raised: #ffffff;
+  --c-surface-sunken: #edeff3;
+  --c-border: #e2e5ea;
+  --c-border-strong: #cbd1da;
+
+  --c-ink: #0b0d10;
+  --c-ink-dim: #5a6270;
+  --c-ink-faint: #6e7681;
+
+  --c-accent: #c3f53c;
+  --c-accent-hover: #b5e82a;
+  --c-accent-on: #0b0d10;
+  --c-accent-ink: #4f6b00;
+  --c-accent-bg: #f2f9dd;
+
+  --c-warn: #8f5600;
+  --c-warn-bg: #fff6e5;
+  --c-warn-border: #f0d9a8;
+  --c-danger: #c0342e;
+  --c-danger-bg: #fef0ef;
+  --c-danger-border: #f3c4c1;
+  --c-good: #0e7b54;
+  --c-good-bg: #eafaf2;
+  --c-good-border: #b6e6cf;
+
+  --c-shadow: 0 1px 2px rgb(11 13 16 / 0.05), 0 8px 24px -12px rgb(11 13 16 / 0.12);
+
+  /* --- chart ramps: ALWAYS ordered least-intense -> most-intense ---------- */
+  /* quantileBinner() skips the first step assuming index 0 is the weakest.
+     Both themes must honour that direction or the heatmaps invert. */
+  --chart-seq-0: #f2f7e4;
+  --chart-seq-1: #e4f0c4;
+  --chart-seq-2: #d2e79c;
+  --chart-seq-3: #bfdd6e;
+  --chart-seq-4: #a8ce3d;
+  --chart-seq-5: #8cb222;
+  --chart-seq-6: #6e9016;
+  --chart-seq-7: #526b10;
+  --chart-seq-8: #3a4c0b;
+
+  /* Diverging: strong at both ends, neutral at index 4. Cyan <-> amber rather
+     than anything red -- a high-volume cell must never read as an alert. */
+  --chart-div-0: #0e5c6b;
+  --chart-div-1: #1187a0;
+  --chart-div-2: #35b3c9;
+  --chart-div-3: #a5dee8;
+  --chart-div-4: #eceded;
+  --chart-div-5: #fbdfae;
+  --chart-div-6: #f0a93c;
+  --chart-div-7: #c87a12;
+  --chart-div-8: #8a5109;
+
+  --chart-cat-0: #5b7f0a;
+  --chart-cat-1: #0369a1;
+  --chart-cat-2: #c2410c;
+  --chart-cat-3: #7e22ce;
+  --chart-cat-4: #0f766e;
+  --chart-cat-5: #a16207;
+  --chart-cat-6: #be185d;
+  --chart-cat-7: #475569;
+
+  /* --- chart semantic roles ---------------------------------------------- */
+  --chart-primary: #5b7f0a;
+  --chart-primary-soft: #cde694;
+  --chart-contrast: #c2410c;
+  --chart-contrast-soft: #f7c9a8;
+  --chart-good: #0e7b54;
+  --chart-muted: #8b93a2;
+  --chart-band: #eff1f4;
+  --chart-empty: #f1f3f6;
+  --chart-empty-stroke: #e2e5ea;
+  --chart-axis: #6e7681;
+  --chart-axis-text: #5a6270;
+  --chart-flag: #b26a00;
+  --chart-ink: #0b0d10;
+  --chart-ink-dim: #5a6270;
+}
+
+/* `:root.dark` rather than `.dark`: both would be specificity (0,1,0) against the
+   `:root` block above and the one Tailwind emits, leaving the swap to depend on
+   source order. (0,2,0) removes the whole question. */
+:root.dark {
+  color-scheme: dark;
+
+  --c-canvas: #08090b;
+  --c-surface: #111419;
+  --c-surface-raised: #171b21;
+  --c-surface-sunken: #0b0d10;
+  --c-border: #232831;
+  --c-border-strong: #333a45;
+
+  --c-ink: #e9edf2;
+  --c-ink-dim: #98a1ad;
+  --c-ink-faint: #8b95a2;
+
+  --c-accent: #c3f53c;
+  --c-accent-hover: #d2ff5e;
+  --c-accent-on: #0b0d10;
+  --c-accent-ink: #c3f53c;
+  --c-accent-bg: #1b2410;
+
+  --c-warn: #ffb020;
+  --c-warn-bg: #221a08;
+  --c-warn-border: #4a3811;
+  --c-danger: #ff6b6b;
+  --c-danger-bg: #241012;
+  --c-danger-border: #4d2124;
+  --c-good: #3dd68c;
+  --c-good-bg: #0c2119;
+  --c-good-border: #1d4536;
+
+  --c-shadow: 0 1px 0 rgb(255 255 255 / 0.03) inset;
+
+  /* Re-authored, not inverted: a pale-blue-to-dark-blue ramp is invisible on
+     near-black. Here "more" means "brighter lime". */
+  --chart-seq-0: #1a2010;
+  --chart-seq-1: #23300f;
+  --chart-seq-2: #2e4310;
+  --chart-seq-3: #3b5810;
+  --chart-seq-4: #4a6e0f;
+  --chart-seq-5: #5d880d;
+  --chart-seq-6: #74a50b;
+  --chart-seq-7: #9bce1e;
+  --chart-seq-8: #c3f53c;
+
+  --chart-div-0: #67e8f9;
+  --chart-div-1: #22d3ee;
+  --chart-div-2: #0ea5c4;
+  --chart-div-3: #146e7f;
+  --chart-div-4: #2a3038;
+  --chart-div-5: #7a5a16;
+  --chart-div-6: #b8841a;
+  --chart-div-7: #f0a92a;
+  --chart-div-8: #ffc95c;
+
+  --chart-cat-0: #c3f53c;
+  --chart-cat-1: #38bdf8;
+  --chart-cat-2: #fb923c;
+  --chart-cat-3: #c084fc;
+  --chart-cat-4: #2dd4bf;
+  --chart-cat-5: #fde047;
+  --chart-cat-6: #f472b6;
+  --chart-cat-7: #94a3b8;
+
+  --chart-primary: #c3f53c;
+  --chart-primary-soft: #6b8f1f;
+  --chart-contrast: #fb923c;
+  --chart-contrast-soft: #7a4a1c;
+  --chart-good: #3dd68c;
+  --chart-muted: #59626f;
+  --chart-band: #171b21;
+  --chart-empty: #14181e;
+  --chart-empty-stroke: #232831;
+  --chart-axis: #8b95a2;
+  --chart-axis-text: #98a1ad;
+  --chart-flag: #ffb020;
+  --chart-ink: #e9edf2;
+  --chart-ink-dim: #98a1ad;
+}
+
+@theme inline {
+  --color-canvas: var(--c-canvas);
+  --color-surface: var(--c-surface);
+  --color-raised: var(--c-surface-raised);
+  --color-sunken: var(--c-surface-sunken);
+  --color-line: var(--c-border);
+  --color-line-strong: var(--c-border-strong);
+
+  --color-ink: var(--c-ink);
+  --color-dim: var(--c-ink-dim);
+  --color-faint: var(--c-ink-faint);
+
+  --color-accent: var(--c-accent);
+  --color-accent-hover: var(--c-accent-hover);
+  --color-accent-on: var(--c-accent-on);
+  --color-accent-ink: var(--c-accent-ink);
+  --color-accent-bg: var(--c-accent-bg);
+
+  --color-warn: var(--c-warn);
+  --color-warn-bg: var(--c-warn-bg);
+  --color-warn-line: var(--c-warn-border);
+  --color-danger: var(--c-danger);
+  --color-danger-bg: var(--c-danger-bg);
+  --color-danger-line: var(--c-danger-border);
+  --color-good: var(--c-good);
+  --color-good-bg: var(--c-good-bg);
+  --color-good-line: var(--c-good-border);
+
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+}
+
+@layer base {
+  html {
+    background-color: var(--c-canvas);
+  }
+
+  body {
+    background-color: var(--c-canvas);
+    color: var(--c-ink);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* One accent focus ring everywhere, replacing the browser default. */
+  :focus-visible {
+    outline: 2px solid var(--c-accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  ::selection {
+    background: var(--c-accent);
+    color: var(--c-accent-on);
+  }
+
+  /* Native controls inherit the surface rather than staying light-on-dark. */
+  :where(input, select, textarea, button) {
+    font: inherit;
+    color: inherit;
+  }
+
+  /* `color-scheme` above darkens the native widgets; this states the accent they
+     tint with. Settings and the tagging tray are full of them. */
+  :where(input[type='checkbox'], input[type='radio'], progress) {
+    accent-color: var(--c-accent);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
+  }
+
+  ::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--c-canvas);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--c-border-strong);
+    border: 3px solid var(--c-canvas);
+    border-radius: 99px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--c-ink-faint);
+  }
+}
+
+@layer components {
+  /* The micro-label: every uppercase caption in the app uses this. */
+  .hud-label {
+    font-size: 0.6875rem;
+    line-height: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--c-ink-faint);
+  }
+
+  /* Every number in the app locks to the mono grid. */
+  .num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+}
