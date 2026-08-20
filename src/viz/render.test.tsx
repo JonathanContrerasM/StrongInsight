@@ -119,7 +119,7 @@ for (const s of parsed.sets) {
   if (!meta[s.exerciseName]) meta[s.exerciseName] = seedFor(s.exerciseName) ?? guessMeta(s.exerciseName);
 }
 const lookup = (n: string) => meta[n];
-const sets = enrichSets(parsed.sets, buildMetaIndex(meta), makeBodyweightResolver([{ date: '2024-09-10', kg: 78 }], 80));
+const sets = enrichSets(parsed.sets, buildMetaIndex(meta), makeBodyweightResolver([{ date: '2023-01-01', kg: 80 }], 80));
 
 const EMPTY: EnrichedSet[] = [];
 

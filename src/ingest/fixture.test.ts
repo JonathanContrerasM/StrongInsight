@@ -237,7 +237,7 @@ const realMeta = buildRealMeta();
 const enriched = enrichSets(
   sets,
   buildMetaIndex(realMeta),
-  makeBodyweightResolver([{ date: '2024-09-10', kg: 78 }, { date: '2026-08-19', kg: 82 }], 80),
+  makeBodyweightResolver([{ date: '2023-01-01', kg: 80 }, { date: '2023-12-31', kg: 84 }], 80),
 );
 
 describe.skipIf(!present)('fixture: metadata and derived metrics', () => {
@@ -307,7 +307,7 @@ describe.skipIf(!present)('fixture: metadata and derived metrics', () => {
     const again = enrichSets(
       parseCsv(text).sets,
       buildMetaIndex(realMeta),
-      makeBodyweightResolver([{ date: '2024-09-10', kg: 78 }, { date: '2026-08-19', kg: 82 }], 80),
+      makeBodyweightResolver([{ date: '2023-01-01', kg: 80 }, { date: '2023-12-31', kg: 84 }], 80),
     );
     expect(volume(again).volumeKg).toBeCloseTo(volume(enriched).volumeKg, 6);
     expect(summarise('Pull Up', again.filter((s) => s.canonicalName === 'Pull Up')).volume.volumeKg)

@@ -36,7 +36,7 @@ function toNumber(raw: string | undefined): number | null {
 }
 
 /**
- * Strong writes local wall-clock time with no offset ("2024-09-10 18:36:38").
+ * Strong writes local wall-clock time with no offset ("2023-01-09 18:15:00").
  * Parse it as local time explicitly -- new Date(string) treats a bare "YYYY-MM-DD"
  * as UTC and shifts the day backwards west of Greenwich.
  */

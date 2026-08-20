@@ -38,7 +38,7 @@ export function makeCsv(
 
   const body = rows.map((r) => {
     const cells = [
-      r.date ?? '2024-09-10 18:36:38',
+      r.date ?? '2023-01-09 18:15:00',
       quote(r.workout ?? 'Abend-Workout'),
       r.duration ?? '1h',
       quote(r.exercise ?? 'Squat (Barbell)'),
