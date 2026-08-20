@@ -1,0 +1,8 @@
+# Let git normalise source files to LF in the repository and convert on checkout.
+* text=auto
+
+# CSV fixtures reproduce a real Strong export byte for byte: CRLF line endings
+# and NO trailing newline. The test suite asserts both. Git must never normalise
+# them, or the fixture arrives LF-only on Linux/macOS and those tests fail on
+# every platform except the one it was committed from.
+*.csv -text
