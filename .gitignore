@@ -1,0 +1,9 @@
+node_modules
+dist
+.DS_Store
+*.local
+*.tsbuildinfo
+
+# Personal training export. Never commit this: it is two years of real session
+# history with exact timestamps. A synthetic sample ships instead, see README.
+fixtures/strong_workouts.csv
