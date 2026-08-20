@@ -228,12 +228,12 @@ describe('parseCsv structure', () => {
   });
 
   it('parses dates as local wall-clock time, not UTC', () => {
-    const csv = makeCsv([{ date: '2023-01-09 18:15:00', setOrder: 1, weight: 100, reps: 5 }]);
+    const csv = makeCsv([{ date: '2023-03-15 14:05:09', setOrder: 1, weight: 100, reps: 5 }]);
     const d = parseCsv(csv).sets[0]?.date;
     expect(d?.getFullYear()).toBe(2023);
-    expect(d?.getMonth()).toBe(0);
-    expect(d?.getDate()).toBe(9);
-    expect(d?.getHours()).toBe(18);
+    expect(d?.getMonth()).toBe(2);
+    expect(d?.getDate()).toBe(15);
+    expect(d?.getHours()).toBe(14);
   });
 
   it('trims stray whitespace from exercise names and reports it', () => {
