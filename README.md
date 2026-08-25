@@ -522,10 +522,49 @@ cannot drift from what actually ships. It also checks WCAG contrast for every te
 verifies that the hard-coded colours in the boot script still match `--c-canvas` — the one
 unavoidable duplication in the system.
 
+## The Improvements tab: refusing to confabulate
+
+A weakness engine finds weaknesses whether or not any exist. Search seven weekdays for the one
+you train least and one of them always comes last; search 34 lifts for a stall and several
+always look stalled. The measured weekday rates on the reference corpus, against an overall
+28.1%:
+
+| | Sat | Fri | Wed | Mon | Tue | Sun | Thu |
+|---|---|---|---|---|---|---|---|
+| rate | 5.0% | 16.8% | 25.7% | 28.7% | 38.2% | 40.6% | 41.6% |
+| z | **-5.18** | -2.52 | -0.53 | +0.14 | +2.28 | +2.79 | **+3.01** |
+
+Saturday is a real hole. **Monday and Wednesday are indistinguishable from noise**, and a naive
+version of this feature would report "you tend to skip Wednesdays" with a straight face. So
+`src/derive/insights.ts` reports, for every rule, a z *and* the size of the test family it was
+searched within, and one `gate()` decides what the user ever sees:
+
+- **clear** survives a Bonferroni correction across the family — |z| >= 2.69 among seven
+  weekdays, 3.18 among 34 lifts.
+- **suggestive** clears the ordinary 1.96 bar but not that one, and is labelled as such.
+- Anything below is **suppressed**, counted, and never shown.
+
+Three counters are surfaced in the UI rather than hidden, because they are the feature's
+credibility: patterns tested, suppressed as too weak, and tested-and-fine. A weekly-frequency
+decline from 2.04 to 1.86 sessions looks real and is not (z ~ 0.9); it is suppressed, and a test
+asserts that it stays suppressed.
+
+Two framing decisions worth keeping:
+
+- **It measures training rate, not skipping.** Someone running Tue/Thu/Sun by design has not
+  skipped Saturday. And past half the week, untrained days fold into one observation —
+  "your training sits on Mondays, Wednesdays and Fridays" — because four separate cards about a
+  three-day split are four accusations aimed at the programme itself.
+- **No dependence on "now".** `derive/` forbids dates-from-now, so "abandoned" is measured
+  against the last session in the corpus. That is also simply more correct: against a CSV
+  exported three months ago, wall-clock recency would call every lift in it abandoned.
+
+Findings that are *facts* rather than inferences — a lift genuinely untouched for 119 days —
+carry `z: null` and bypass the gate explicitly, so the gate cannot quietly become decorative.
+
 ## Out of scope in this iteration
 
-The insights engine, PR/stagnation detection, volume landmarks, body diagrams, DuckDB/SQL, any
-backend or sync. Linked brushing is limited to a date range; full crossfilter and
+Volume landmarks, body diagrams, DuckDB/SQL, any backend or sync. Linked brushing is limited to a date range; full crossfilter and
 re-clustering on a brushed subset are deliberately deferred — the latter is unstable across brush
 positions and reads as a bug. Where a decision would constrain later work, the code carries a
 `// FUTURE:` comment rather than building ahead of scope.

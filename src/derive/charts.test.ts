@@ -8,8 +8,12 @@ import {
 } from './buckets';
 import {
   median,
+  proportionZ,
   quantile,
   quantileThresholds,
+  slopeWithError,
+  stdev,
+  zCritical,
   binIndex,
   rollingMean,
   rollingMedian,
@@ -175,6 +179,84 @@ describe('stats', () => {
 });
 
 // --- series -------------------------------------------------------------------
+
+describe('significance primitives', () => {
+  it('computes sample standard deviation', () => {
+    expect(stdev([2, 4, 4, 4, 5, 5, 7, 9])).toBeCloseTo(2.1381, 3);
+    expect(stdev([5])).toBeNull();
+    expect(stdev([])).toBeNull();
+  });
+
+  it('scores a proportion against an expected rate', () => {
+    // 30 of 100 against an expected 20%: (0.30-0.20)/sqrt(.2*.8/100) = 2.5
+    expect(proportionZ(30, 100, 0.2)).toBeCloseTo(2.5, 4);
+    // Dead on the expected rate is zero standard errors away.
+    expect(proportionZ(20, 100, 0.2)).toBeCloseTo(0, 10);
+  });
+
+  /**
+   * The refusal matters more than the arithmetic: a handful of weeks cannot
+   * support a claim about which weekday gets skipped, and a number computed
+   * anyway would look exactly as authoritative as a real one.
+   */
+  it('refuses when the normal approximation does not hold', () => {
+    expect(proportionZ(2, 10, 0.2)).toBeNull(); // 10 * 0.2 = 2, under 5
+    expect(proportionZ(1, 5, 0.9)).toBeNull(); // few expected failures
+    expect(proportionZ(5, 0, 0.2)).toBeNull();
+    expect(proportionZ(5, 100, 0)).toBeNull();
+    expect(proportionZ(5, 100, 1)).toBeNull();
+  });
+
+  it('fits a slope with its standard error', () => {
+    // A perfectly straight line has no residual scatter. That is a property of
+    // the points, not evidence of a trend, so it scores zero rather than
+    // dividing by zero into infinity.
+    const clean = slopeWithError([
+      { x: 0, y: 0 },
+      { x: 1, y: 2 },
+      { x: 2, y: 4 },
+    ]);
+    expect(clean?.slope).toBeCloseTo(2, 10);
+    expect(clean?.stdErr).toBe(0);
+    expect(clean?.z).toBe(0);
+  });
+
+  it('separates a real trend from noise around one', () => {
+    const trending = slopeWithError(
+      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((x) => ({ x, y: x * 2 + (x % 2 === 0 ? 0.2 : -0.2) })),
+    );
+    expect(trending!.z).toBeGreaterThan(10);
+
+    // Alternating values have no trend at all.
+    const flat = slopeWithError(
+      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((x) => ({ x, y: x % 2 === 0 ? 1 : -1 })),
+    );
+    expect(Math.abs(flat!.z)).toBeLessThan(2);
+  });
+
+  it('needs three points before a slope can be tested', () => {
+    expect(slopeWithError([{ x: 0, y: 0 }, { x: 1, y: 1 }])).toBeNull();
+    expect(slopeWithError([])).toBeNull();
+    // Zero variance in x fits nothing.
+    expect(slopeWithError([{ x: 1, y: 0 }, { x: 1, y: 1 }, { x: 1, y: 2 }])).toBeNull();
+  });
+
+  it('inverts the normal CDF at the textbook values', () => {
+    expect(zCritical(0.05)).toBeCloseTo(1.959964, 5);
+    expect(zCritical(0.01)).toBeCloseTo(2.575829, 5);
+    expect(zCritical(0.001)).toBeCloseTo(3.290527, 5);
+  });
+
+  /**
+   * The whole point of the correction: the bar rises with the number of tests,
+   * so searching 34 lifts for a stall does not find one in noise.
+   */
+  it('raises the bar as the test family grows', () => {
+    expect(zCritical(0.05 / 7)).toBeCloseTo(2.69, 2);
+    expect(zCritical(0.05 / 34)).toBeCloseTo(3.18, 2);
+    expect(zCritical(0.05 / 34)).toBeGreaterThan(zCritical(0.05));
+  });
+});
 
 describe('series', () => {
   const rows = [
