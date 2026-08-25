@@ -25,6 +25,7 @@ import {
 } from './TimeSeries';
 import { RepHistogram, SetPositionChart } from './Distributions';
 import { Sparkline, WeekdayBars } from './Insights';
+import { CsvDropzone } from '../ui/CsvDropzone';
 import { findings } from '../derive/insights';
 import type { ExerciseMeta } from '../model/types';
 import { SAMPLE_FIXTURE } from '../test/fixtures';
@@ -263,6 +264,43 @@ describe('insight charts', () => {
             );
       expect(el).toBeTruthy();
     }
+  });
+});
+
+/** Shared by Import and Compare, so a break here breaks two views. */
+describe('csv dropzone', () => {
+  it('renders its copy and a file input', () => {
+    const el = render(
+      <CsvDropzone onFile={() => {}} title="Drop it" subtitle="or click" />,
+    );
+    expect(el.textContent).toContain('Drop it');
+    expect(el.textContent).toContain('or click');
+    const input = el.querySelector('input[type="file"]');
+    expect(input).toBeTruthy();
+    expect(input!.getAttribute('accept')).toBe('.csv,text/csv');
+  });
+
+  it('swaps in the busy title while reading', () => {
+    const el = render(
+      <CsvDropzone onFile={() => {}} busy title="Drop it" busyTitle="Reading..." subtitle="s" />,
+    );
+    expect(el.textContent).toContain('Reading...');
+    expect(el.textContent).not.toContain('Drop it');
+  });
+
+  it('hands the chosen file to its caller', () => {
+    let got: File | null = null;
+    const el = render(
+      <CsvDropzone onFile={(f) => { got = f; }} title="t" subtitle="s" />,
+    );
+    const input = el.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(['Datum'], 'theirs.csv', { type: 'text/csv' });
+    Object.defineProperty(input, 'files', { value: [file], configurable: true });
+    act(() => {
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(got).not.toBeNull();
+    expect((got as unknown as File).name).toBe('theirs.csv');
   });
 });
 
