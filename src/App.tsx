@@ -6,20 +6,11 @@ import { ExerciseList } from './views/ExerciseList';
 import { SettingsView } from './views/Settings';
 import { Dashboard } from './views/Dashboard';
 import { Improvements } from './views/Improvements';
+import { Compare } from './views/Compare';
 import { ExerciseDetail } from './views/ExerciseDetail';
 import { ThemeControl } from './ui/ThemeControl';
 import { Badge, Notice } from './ui/primitives';
-
-type Tab = 'dashboard' | 'improvements' | 'import' | 'tray' | 'exercises' | 'settings';
-
-const TABS: Array<{ id: Tab; label: string }> = [
-  { id: 'dashboard', label: 'Dashboard' },
-  { id: 'improvements', label: 'Improvements' },
-  { id: 'exercises', label: 'Exercises' },
-  { id: 'tray', label: 'Tagging tray' },
-  { id: 'import', label: 'Import' },
-  { id: 'settings', label: 'Settings' },
-];
+import { DISABLED_HINT, TABS, tabEnabled, type Tab } from './ui/tabs';
 
 /** Rising bars: the same mark as the favicon, so the tab and the page agree. */
 function BrandMark() {
@@ -49,10 +40,12 @@ function Shell() {
   }
 
   const hasData = data.current !== null;
-  // Both the dashboard and the weakness engine have nothing to say without a
-  // corpus, so an empty app lands on Import rather than on an empty state.
-  const activeTab: Tab =
-    !hasData && (tab === 'dashboard' || tab === 'improvements') ? 'import' : tab;
+  /**
+   * A fallback, not the mechanism. Every data-dependent tab is rendered disabled
+   * below, so this cannot be reached by clicking -- it catches `hasData` going
+   * false underneath a live tab, which is what "Reset everything" does.
+   */
+  const activeTab: Tab = tabEnabled(tab, hasData) ? tab : 'import';
 
   const openExercise = (name: string) => {
     setDetail(name);
@@ -79,14 +72,21 @@ function Shell() {
             <nav className="ml-4 hidden h-14 items-center gap-1 md:flex" aria-label="Sections">
               {TABS.map((t) => {
                 const active = activeTab === t.id;
+                const enabled = tabEnabled(t.id, hasData);
                 return (
                   <button
                     key={t.id}
                     type="button"
                     onClick={() => select(t.id)}
+                    disabled={!enabled}
+                    title={enabled ? undefined : DISABLED_HINT}
                     aria-current={active ? 'page' : undefined}
                     className={
                       'relative flex h-14 items-center gap-1.5 px-3 text-sm font-medium transition-colors ' +
+                      // Not `pointer-events-none`: that would suppress the title
+                      // tooltip, which is the only thing explaining the lock.
+                      // `disabled` already blocks the click on its own.
+                      'disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-dim ' +
                       (active ? 'text-ink' : 'text-dim hover:text-ink')
                     }
                   >
@@ -118,14 +118,18 @@ function Shell() {
           >
             {TABS.map((t) => {
               const active = activeTab === t.id;
+              const enabled = tabEnabled(t.id, hasData);
               return (
                 <button
                   key={t.id}
                   type="button"
                   onClick={() => select(t.id)}
+                  disabled={!enabled}
+                  title={enabled ? undefined : DISABLED_HINT}
                   aria-current={active ? 'page' : undefined}
                   className={
                     'flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ' +
+                    'disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-dim ' +
                     (active ? 'bg-accent-bg text-accent-ink' : 'text-dim hover:text-ink')
                   }
                 >
@@ -179,6 +183,7 @@ function Shell() {
           <Dashboard onSelectExercise={openExercise} onGoToTray={() => setTab('tray')} />
         )}
         {activeTab === 'improvements' && <Improvements onSelectExercise={openExercise} />}
+        {activeTab === 'compare' && <Compare />}
         {activeTab === 'exercises' &&
           (detail ? (
             <ExerciseDetail

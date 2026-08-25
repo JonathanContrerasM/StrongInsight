@@ -562,6 +562,86 @@ Two framing decisions worth keeping:
 Findings that are *facts* rather than inferences — a lift genuinely untouched for 119 days —
 carry `z: null` and bypass the gate explicitly, so the gate cannot quietly become decorative.
 
+## The Compare tab: two people, and what does not compare
+
+Upload another person's export and compare it against your own. Most of what you would naturally
+compare is meaningless, and saying so is the feature.
+
+Measured by splitting the reference corpus in half and treating the halves as two people — the
+friendliest possible case, one person and one exercise vocabulary — overlap was **0.48 Jaccard**,
+and after every gate only **19 of 63 shared exercises** were comparable at all. Between two
+different people it is worse.
+
+**Three refusals**, each surfaced in the UI with its reason rather than folded into an average:
+
+- **Machine and cable loads are not a shared unit.** 60 kg on one manufacturer's stack is not
+  60 kg on another's, and a cable's label depends on the pulley ratio. Only free weights and
+  bodyweight mean the same thing in two different gyms. On the split corpus this removed 18 of
+  the 63 shared lifts.
+- **Equipment is often not stated at all.** Strong only names it in a trailing parenthetical, so
+  `Leg Press` and `Triceps Extension` both infer `equipment: 'unknown'` — one is a machine, one
+  might be a dumbbell, and neither can be verified. 13 more lifts.
+- **Bodyweight movements need both bodyweights.** A pull up logged at zero load is a different
+  amount of work for two different people, and the workout export does not carry it. Note the
+  gate order: `loadType` is checked *before* `equipment`, because `Pull Up`, `Chest Dip` and
+  `Muscle Up` all infer `equipment: 'unknown'` while correctly inferring `bodyweight-plus` —
+  checking equipment first files every one of them as a machine.
+
+**The headline number is the median session best, not the personal best.** A max is a maximum
+over a sample, so it climbs with the number of attempts logged rather than with strength.
+Subsampling the reference corpus 400 times per sample size:
+
+| Squat sessions sampled | max | median session best |
+|---|---|---|
+| 5 | 123.1 | 107.4 |
+| 20 | 129.8 | 107.9 |
+| 51 (all) | 133.3 | 108.0 |
+
+The max drifts 4.4–8.8% across the three biggest lifts; the median does not move. Comparing a
+five-year export against a one-year one on PRs would flatter the longer history for nothing. The
+PR is still shown, beside its session count, labelled as context.
+
+Everything about training *shape* — sessions per week, sets per session, volume per week, share
+of volume by muscle, rep ranges — needs no normalisation between two people and is compared as
+rates, never totals. So is "what they train and you don't", which is the one output that needs no
+matching, no units, and no bodyweight.
+
+The second corpus is **never persisted**: it is somebody else's training history, so there is no
+IndexedDB key and no `sessionStorage`. It does survive moving between tabs, because App unmounts
+each view on navigation and losing the file every time you glanced at the dashboard was
+untenable — so it lives in a module-level store (`store/compareCorpus.ts`, the same shape as
+`ui/theme.ts`) rather than component state. Being a plain module variable is what makes a reload
+clear it, with no code required. The store holds **raw inputs only**, down to the bodyweight
+field being kept as the typed string rather than a parsed number: a controlled number input bound
+to a parsed value eats the decimal point while you are still typing `78.5`.
+
+It also gets its own metadata map rather than the store's — partly so their exercises stay out of
+your tag table and tagging tray, and partly for correctness, since the store's lazy resolver
+would guess their unseen names without the observed-weights hint and resolve bodyweight movements
+to `external`.
+
+One hazard worth knowing: set and workout ids are content hashes of date plus name, and Strong's
+workout names are auto-generated time-of-day labels, so **two people who trained the same evening
+produce the same `workoutId`**. The two set arrays are never pooled or keyed together, which is
+what keeps that harmless.
+
+## The empty app
+
+With nothing imported, the nav used to behave three different ways at once: Dashboard,
+Improvements and Compare silently bounced you to Import — and the highlight jumped with you, so
+clicking Dashboard looked like the app had ignored the click — while Exercises and the tagging
+tray opened onto a dead end telling you to go back to Import.
+
+The rule now lives once, in `ui/tabs.ts`: each tab carries a `needsData` flag and `tabEnabled`
+is the only predicate. Data-dependent tabs render as genuinely `disabled` buttons with a title
+explaining why, so keyboard and screen-reader semantics come for free. Note the styling avoids
+`pointer-events-none`, which would suppress that tooltip — `disabled` already blocks the click.
+
+The redirect guard in `App.tsx` survives as a *fallback* rather than the mechanism: nothing can
+be clicked into an unusable state any more, but `hasData` can still go false underneath a live
+tab when *Reset everything* runs. A test pins the exact set of locked tabs, so a tab added later
+without a deliberate `needsData` decision fails rather than silently picking a behaviour.
+
 ## Out of scope in this iteration
 
 Volume landmarks, body diagrams, DuckDB/SQL, any backend or sync. Linked brushing is limited to a date range; full crossfilter and
