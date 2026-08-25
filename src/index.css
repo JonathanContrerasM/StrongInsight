@@ -55,27 +55,27 @@
   /* --- chart ramps: ALWAYS ordered least-intense -> most-intense ---------- */
   /* quantileBinner() skips the first step assuming index 0 is the weakest.
      Both themes must honour that direction or the heatmaps invert. */
-  --chart-seq-0: #f2f7e4;
-  --chart-seq-1: #e4f0c4;
-  --chart-seq-2: #d2e79c;
-  --chart-seq-3: #bfdd6e;
-  --chart-seq-4: #a8ce3d;
-  --chart-seq-5: #8cb222;
-  --chart-seq-6: #6e9016;
-  --chart-seq-7: #526b10;
-  --chart-seq-8: #3a4c0b;
+  --chart-seq-0: #cfe799;
+  --chart-seq-1: #94c229;
+  --chart-seq-2: #89b523;
+  --chart-seq-3: #789f1b;
+  --chart-seq-4: #668814;
+  --chart-seq-5: #55740f;
+  --chart-seq-6: #48620b;
+  --chart-seq-7: #3b5007;
+  --chart-seq-8: #2d3f05;
 
   /* Diverging: strong at both ends, neutral at index 4. Cyan <-> amber rather
      than anything red -- a high-volume cell must never read as an alert. */
-  --chart-div-0: #0e5c6b;
-  --chart-div-1: #1187a0;
-  --chart-div-2: #35b3c9;
-  --chart-div-3: #a5dee8;
-  --chart-div-4: #eceded;
-  --chart-div-5: #fbdfae;
-  --chart-div-6: #f0a93c;
-  --chart-div-7: #c87a12;
-  --chart-div-8: #8a5109;
+  --chart-div-0: #0d586b;
+  --chart-div-1: #106c83;
+  --chart-div-2: #1484a1;
+  --chart-div-3: #18a2c4;
+  --chart-div-4: #c9cdd1;
+  --chart-div-5: #d4820e;
+  --chart-div-6: #ae6a0b;
+  --chart-div-7: #8e5609;
+  --chart-div-8: #744707;
 
   --chart-cat-0: #5b7f0a;
   --chart-cat-1: #0369a1;
@@ -140,25 +140,25 @@
 
   /* Re-authored, not inverted: a pale-blue-to-dark-blue ramp is invisible on
      near-black. Here "more" means "brighter lime". */
-  --chart-seq-0: #1a2010;
-  --chart-seq-1: #23300f;
-  --chart-seq-2: #2e4310;
-  --chart-seq-3: #3b5810;
-  --chart-seq-4: #4a6e0f;
-  --chart-seq-5: #5d880d;
-  --chart-seq-6: #74a50b;
-  --chart-seq-7: #9bce1e;
+  --chart-seq-0: #2b3710;
+  --chart-seq-1: #405215;
+  --chart-seq-2: #4a6215;
+  --chart-seq-3: #587515;
+  --chart-seq-4: #678b14;
+  --chart-seq-5: #76a112;
+  --chart-seq-6: #87ba0f;
+  --chart-seq-7: #9cdb0c;
   --chart-seq-8: #c3f53c;
 
-  --chart-div-0: #67e8f9;
-  --chart-div-1: #22d3ee;
-  --chart-div-2: #0ea5c4;
-  --chart-div-3: #146e7f;
-  --chart-div-4: #2a3038;
-  --chart-div-5: #7a5a16;
-  --chart-div-6: #b8841a;
-  --chart-div-7: #f0a92a;
-  --chart-div-8: #ffc95c;
+  --chart-div-0: #7bdff0;
+  --chart-div-1: #2ccbe8;
+  --chart-div-2: #16afc9;
+  --chart-div-3: #128ca1;
+  --chart-div-4: #41464f;
+  --chart-div-5: #ad720e;
+  --chart-div-6: #da9012;
+  --chart-div-7: #efaf3e;
+  --chart-div-8: #f5cb81;
 
   --chart-cat-0: #c3f53c;
   --chart-cat-1: #38bdf8;

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { effectiveLoad } from './effectiveLoad';
-import { bodyweightAt, makeBodyweightResolver } from './bodyweight';
+import { bodyweightAt, makeBodyweightResolver, mergeBodyweight } from './bodyweight';
 import type { BodyweightEntry } from './types';
 
 describe('effectiveLoad', () => {
@@ -84,5 +84,46 @@ describe('bodyweightAt', () => {
     const r = makeBodyweightResolver(messy, null);
     expect(r.entryCount).toBe(1);
     expect(r(new Date('2024-06-01'))).toBe(80);
+  });
+});
+
+describe('mergeBodyweight', () => {
+  const manual: BodyweightEntry[] = [
+    { date: '2024-01-01', kg: 80 },
+    { date: '2024-02-01', kg: 82 },
+  ];
+
+  it('keeps hand-entered dates the import does not cover', () => {
+    const out = mergeBodyweight(manual, [{ date: '2024-03-01', kg: 84 }]);
+    expect(out).toEqual([
+      { date: '2024-01-01', kg: 80 },
+      { date: '2024-02-01', kg: 82 },
+      { date: '2024-03-01', kg: 84 },
+    ]);
+  });
+
+  it('lets the import win a collision on the same day', () => {
+    const out = mergeBodyweight(manual, [{ date: '2024-02-01', kg: 99 }]);
+    expect(out).toHaveLength(2);
+    expect(out.find((e) => e.date === '2024-02-01')?.kg).toBe(99);
+  });
+
+  it('returns entries sorted by date whatever order they arrived in', () => {
+    const out = mergeBodyweight(
+      [{ date: '2024-05-01', kg: 85 }],
+      [
+        { date: '2024-01-15', kg: 81 },
+        { date: '2024-03-02', kg: 83 },
+      ],
+    );
+    expect(out.map((e) => e.date)).toEqual(['2024-01-15', '2024-03-02', '2024-05-01']);
+  });
+
+  it('leaves the inputs untouched', () => {
+    const imported = [{ date: '2024-02-01', kg: 99 }];
+    mergeBodyweight(manual, imported);
+    expect(manual).toHaveLength(2);
+    expect(manual[1]?.kg).toBe(82);
+    expect(imported).toHaveLength(1);
   });
 });

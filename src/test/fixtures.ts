@@ -12,6 +12,14 @@ import { existsSync } from 'node:fs';
 export const SAMPLE_FIXTURE = 'fixtures/sample_workouts.csv';
 export const REAL_FIXTURE = 'fixtures/strong_workouts.csv';
 
+/** The measurements export, same synthetic/real split. */
+export const SAMPLE_WEIGHT_FIXTURE = 'fixtures/sample_weight.csv';
+export const REAL_WEIGHT_FIXTURE = 'fixtures/strong_weight.csv';
+
+export function hasRealWeightFixture(): boolean {
+  return existsSync(REAL_WEIGHT_FIXTURE);
+}
+
 export function hasRealFixture(): boolean {
   return existsSync(REAL_FIXTURE);
 }
