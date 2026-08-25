@@ -187,6 +187,132 @@ export function linearTrend(points: Array<{ x: number; y: number }>): TrendLine 
   return { slope, intercept, at: (x: number) => slope * x + intercept };
 }
 
+/** Sample standard deviation. Null below two finite values. */
+export function stdev(values: number[]): number | null {
+  const v = sortedFinite(values);
+  if (v.length < 2) return null;
+  const m = (v.reduce((a, b) => a + b, 0)) / v.length;
+  const ss = v.reduce((a, b) => a + (b - m) * (b - m), 0);
+  return Math.sqrt(ss / (v.length - 1));
+}
+
+/**
+ * One-proportion z: how far an observed rate sits from an expected one, in
+ * standard errors.
+ *
+ * Returns null when the normal approximation does not hold. A handful of weeks
+ * cannot support a claim about which weekday gets skipped, and a number computed
+ * anyway would look exactly as authoritative as a real one.
+ */
+export function proportionZ(
+  successes: number,
+  trials: number,
+  expectedRate: number,
+): number | null {
+  if (!Number.isFinite(successes) || !Number.isFinite(trials) || trials <= 0) return null;
+  if (!(expectedRate > 0 && expectedRate < 1)) return null;
+  // The usual rule of thumb: both expected successes and failures need to be
+  // large enough for the normal curve to stand in for the binomial.
+  if (trials * expectedRate < 5 || trials * (1 - expectedRate) < 5) return null;
+  const se = Math.sqrt((expectedRate * (1 - expectedRate)) / trials);
+  if (se === 0) return null;
+  return (successes / trials - expectedRate) / se;
+}
+
+export type SlopeFit = {
+  slope: number;
+  intercept: number;
+  /** Standard error of the slope. */
+  stdErr: number;
+  /** slope / stdErr -- how many standard errors the trend sits from flat. */
+  z: number;
+  n: number;
+};
+
+/**
+ * OLS plus the standard error of the slope, so a trend can be TESTED rather than
+ * merely drawn.
+ *
+ * `linearTrend` above answers "what line fits these points"; every fit produces
+ * one, including a fit through noise. This answers "is that line distinguishable
+ * from flat", which is the only version an insight rule may act on. Needs three
+ * points: with two, the residual variance is zero by construction and every
+ * slope would look infinitely significant.
+ */
+export function slopeWithError(points: Array<{ x: number; y: number }>): SlopeFit | null {
+  const pts = points.filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+  const n = pts.length;
+  if (n < 3) return null;
+
+  const mx = pts.reduce((a, p) => a + p.x, 0) / n;
+  const my = pts.reduce((a, p) => a + p.y, 0) / n;
+
+  let sxy = 0;
+  let sxx = 0;
+  for (const p of pts) {
+    const dx = p.x - mx;
+    sxy += dx * (p.y - my);
+    sxx += dx * dx;
+  }
+  if (sxx === 0) return null;
+
+  const slope = sxy / sxx;
+  const intercept = my - slope * mx;
+
+  let sse = 0;
+  for (const p of pts) {
+    const resid = p.y - (slope * p.x + intercept);
+    sse += resid * resid;
+  }
+  const stdErr = Math.sqrt(sse / (n - 2) / sxx);
+  // A perfectly collinear series has no residual scatter. That is a property of
+  // having few points, not evidence of a trend, so it scores zero rather than
+  // dividing by zero into infinity.
+  if (!Number.isFinite(stdErr) || stdErr === 0) {
+    return { slope, intercept, stdErr: 0, z: 0, n };
+  }
+  return { slope, intercept, stdErr, z: slope / stdErr, n };
+}
+
+/**
+ * Inverse standard normal CDF -- the z with `alpha` probability in the upper
+ * tail. Acklam's rational approximation, |error| < 1.2e-9.
+ *
+ * Needed because the significance threshold is not a constant: it depends on how
+ * many tests ran alongside a finding. Testing 34 exercises for a stall and taking
+ * the best one at p<.05 finds a "stalled lift" in pure noise about four times in
+ * five; the Bonferroni-corrected threshold this feeds is what prevents that.
+ */
+export function zCritical(alpha: number): number {
+  if (!(alpha > 0 && alpha < 1)) return Infinity;
+  // Two-tailed: put half the mass in each tail.
+  const p = 1 - alpha / 2;
+  const a = [-39.6968302866538, 220.946098424521, -275.928510446969,
+             138.357751867269, -30.6647980661472, 2.50662827745924];
+  const b = [-54.4760987982241, 161.585836858041, -155.698979859887,
+             66.8013118877197, -13.2806815528857];
+  const c = [-0.00778489400243029, -0.322396458041136, -2.40075827716184,
+             -2.54973253934373, 4.37466414146497, 2.93816398269878];
+  const d = [0.00778469570904146, 0.32246712907004, 2.445134137143, 3.75440866190742];
+  const pLow = 0.02425;
+  const pHigh = 1 - pLow;
+
+  if (p < pLow) {
+    const q = Math.sqrt(-2 * Math.log(p));
+    return (((((c[0]! * q + c[1]!) * q + c[2]!) * q + c[3]!) * q + c[4]!) * q + c[5]!) /
+      ((((d[0]! * q + d[1]!) * q + d[2]!) * q + d[3]!) * q + 1);
+  }
+  if (p > pHigh) {
+    const q = Math.sqrt(-2 * Math.log(1 - p));
+    return -(((((c[0]! * q + c[1]!) * q + c[2]!) * q + c[3]!) * q + c[4]!) * q + c[5]!) /
+      ((((d[0]! * q + d[1]!) * q + d[2]!) * q + d[3]!) * q + 1);
+  }
+  const q = p - 0.5;
+  const r = q * q;
+  return (((((a[0]! * r + a[1]!) * r + a[2]!) * r + a[3]!) * r + a[4]!) * r + a[5]!) * q /
+    (((((b[0]! * r + b[1]!) * r + b[2]!) * r + b[3]!) * r + b[4]!) * r + 1);
+}
+
 /** Nice, human-readable axis ticks covering [min, max]. */
 export function niceTicks(min: number, max: number, target = 5): number[] {
   if (!Number.isFinite(min) || !Number.isFinite(max)) return [];
