@@ -175,6 +175,30 @@ load resolves per set:
 entries recorded it returns a configurable fallback and the Settings view shows a first-run
 prompt, rather than silently computing zeros.
 
+### Getting bodyweight in
+
+Entries can be typed by hand in Settings, or imported from Strong's **measurements export**
+(`src/ingest/parseBodyweightCsv.ts`). That file is the messiest input the app takes -- it is a
+long/tall table of every measurement Apple Health ever wrote, so it spans years before training
+started, mixes in kinds we do not model, and contains junk. The importer therefore:
+
+- **filters by measurement kind**, so a body-fat row in `%` is reported as a different
+  measurement rather than as a broken weight;
+- **converts per row** using that row's own unit cell;
+- **range-checks** against 30-300 kg, which is what catches the zeros health apps write;
+- **clips to `report.dateRange`**, the workout span -- a weight from eight years before the
+  first session cannot inform any set, and anchoring the ramp there actively misleads;
+- **collapses each day to its last reading**, because the model stores one weight per day;
+- **drops values more than 25% from the median**, but only once there are at least three
+  readings: below that the median sits between two far-apart values and would cull both.
+
+Every refused row lands in the report with its file line and verbatim value -- the same
+"nothing is silently dropped" contract the workout import holds. The result is merged into the
+existing entries with the import winning a same-date collision (`mergeBodyweight`).
+
+**It does not densify.** Only real observations are stored; interpolation stays a read-time
+concern, so correcting one entry still retroactively fixes all history.
+
 `SetRecord` stores the **raw** weight. Effective load is always derived, never persisted, so
 correcting a `loadType` or a bodyweight entry retroactively fixes all history.
 

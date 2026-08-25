@@ -1,8 +1,12 @@
 import type { BodyweightEntry } from './types';
 
 /**
- * The user maintains bodyweight manually. 31% of this corpus is bodyweight work,
- * so without it a third of training computes to zero volume.
+ * Bodyweight history: entered by hand in Settings, or imported from Strong's
+ * measurements export (`ingest/parseBodyweightCsv`). 31% of this corpus is
+ * bodyweight work, so without it a third of training computes to zero volume.
+ *
+ * Either way only real observations are stored. The interpolation below is what
+ * fills the gaps, at read time.
  */
 
 export type BodyweightResolver = {
@@ -24,6 +28,25 @@ export function sortBodyweight(entries: BodyweightEntry[]): BodyweightEntry[] {
     .filter((e) => Number.isFinite(e.kg) && e.kg > 0 && Number.isFinite(toTime(e.date)))
     .slice()
     .sort((a, b) => toTime(a.date) - toTime(b.date));
+}
+
+/**
+ * Folds imported entries into the hand-maintained ones, imported winning a
+ * collision on the same date.
+ *
+ * Lives here rather than in the importer because it is the store's shape, not the
+ * file's, and rather than in the Settings view because merge rules deserve tests.
+ * The whole array is replaced in one write: every bodyweight change rebuilds the
+ * resolver and re-enriches the entire corpus.
+ */
+export function mergeBodyweight(
+  existing: BodyweightEntry[],
+  imported: BodyweightEntry[],
+): BodyweightEntry[] {
+  const byDate = new Map<string, BodyweightEntry>();
+  for (const e of existing) byDate.set(e.date, e);
+  for (const e of imported) byDate.set(e.date, e);
+  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
 
 /**

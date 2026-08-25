@@ -24,9 +24,9 @@ export type ParseResult = {
   report: ImportReport;
 };
 
-const LB_TO_KG = 0.45359237;
+export const LB_TO_KG = 0.45359237;
 
-function toNumber(raw: string | undefined): number | null {
+export function toNumber(raw: string | undefined): number | null {
   if (raw == null) return null;
   const s = raw.trim();
   if (s === '') return null;
