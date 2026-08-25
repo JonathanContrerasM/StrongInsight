@@ -1,6 +1,14 @@
 import { useMemo } from 'react';
 import type { DayCell } from '../derive/series';
-import { quantileBinner, EMPTY_FILL, EMPTY_STROKE, NEUTRAL_INK, categorical } from '../charts/colour';
+import {
+  quantileBinner,
+  EMPTY_FILL,
+  EMPTY_STROKE,
+  NEUTRAL_INK,
+  categorical,
+  AXIS,
+  AXIS_TEXT,
+} from '../charts/colour';
 import { BinLegend, ChartCard, NotEnoughData, Tooltip, useTooltip } from '../charts/parts';
 import { formatDate, formatDuration, formatVolume } from '../format';
 import type { WeightUnit } from '../model/types';
@@ -59,7 +67,7 @@ export function TrainingCalendar({
       const c = clusterOf(d);
       return c === null ? NEUTRAL_INK : categorical(c);
     }
-    if (d.volumeKg <= 0) return '#e2e8f0';
+    if (d.volumeKg <= 0) return EMPTY_FILL;
     return binner(d.volumeKg);
   };
 
@@ -91,16 +99,16 @@ export function TrainingCalendar({
 
         return (
           <div key={year} className="overflow-x-auto">
-            <div className="mb-0.5 text-xs font-medium text-slate-500">{year}</div>
+            <div className="mb-0.5 text-xs font-medium text-dim">{year}</div>
             <svg width={width} height={height} role="img" aria-label={'Training calendar ' + year}>
               {monthTicks.map((t, i) => (
-                <text key={i} x={t.x} y={9} fontSize={9} fill="#94a3b8">
+                <text key={i} x={t.x} y={9} fontSize={9} fill={AXIS}>
                   {t.label}
                 </text>
               ))}
               {WEEKDAY_LABELS.map((lbl, i) =>
                 i % 2 === 1 ? (
-                  <text key={i} x={0} y={16 + i * STEP + CELL - 2} fontSize={9} fill="#94a3b8">
+                  <text key={i} x={0} y={16 + i * STEP + CELL - 2} fontSize={9} fill={AXIS}>
                     {lbl}
                   </text>
                 ) : null,
@@ -131,7 +139,7 @@ export function TrainingCalendar({
                       onClick={() => d.hasWorkout && onSelectDay?.(d)}
                     />
                     {trainedNoVolume && (
-                      <circle cx={x + CELL / 2} cy={y + CELL / 2} r={1.6} fill="#64748b" />
+                      <circle cx={x + CELL / 2} cy={y + CELL / 2} r={1.6} fill={AXIS_TEXT} />
                     )}
                   </g>
                 );
@@ -150,20 +158,20 @@ export function TrainingCalendar({
             )}
             format={(v) => formatVolume(v, unit)}
           />
-          <span className="inline-flex items-center gap-1 text-xs text-slate-500">
+          <span className="inline-flex items-center gap-1 text-xs text-dim">
             <span
               className="inline-block h-3 w-3 rounded-sm border"
               style={{ background: EMPTY_FILL, borderColor: EMPTY_STROKE }}
             />
             rest day
           </span>
-          <span className="inline-flex items-center gap-1 text-xs text-slate-500">
-            <span className="inline-block h-3 w-3 rounded-sm" style={{ background: '#e2e8f0' }} />
+          <span className="inline-flex items-center gap-1 text-xs text-dim">
+            <span className="inline-block h-3 w-3 rounded-sm" style={{ background: EMPTY_FILL }} />
             trained, no countable load
           </span>
         </div>
       ) : (
-        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-dim">
           {(clusterLabels ?? []).map((l, i) => (
             <span key={l + i} className="inline-flex items-center gap-1">
               <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: categorical(i) }} />
@@ -177,7 +185,7 @@ export function TrainingCalendar({
         </div>
       )}
 
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-dim">
         Shades are quantiles of your own history, so a colour means &quot;busy for you&quot;, not an
         absolute amount.
       </p>
@@ -207,7 +215,7 @@ function CalendarTip({
     return (
       <div>
         <div className="font-medium">{formatDate(day.date)}</div>
-        <div className="text-slate-500">Rest day</div>
+        <div className="text-dim">Rest day</div>
       </div>
     );
   }
@@ -215,18 +223,18 @@ function CalendarTip({
   return (
     <div className="space-y-0.5">
       <div className="font-medium">{formatDate(day.date)}</div>
-      <div className="text-slate-600">
+      <div className="text-dim">
         {day.setCount} sets &middot; {formatVolume(day.volumeKg, unit)}
         {day.durationSec > 0 && <> &middot; {formatDuration(day.durationSec)}</>}
       </div>
       {cluster !== null && cluster !== undefined && clusterLabels?.[cluster] && (
-        <div className="text-slate-600">Split: {clusterLabels[cluster]}</div>
+        <div className="text-dim">Split: {clusterLabels[cluster]}</div>
       )}
-      <div className="text-slate-500">{day.exercises.slice(0, 6).join(', ')}
+      <div className="text-dim">{day.exercises.slice(0, 6).join(', ')}
         {day.exercises.length > 6 ? ', ...' : ''}
       </div>
       {day.volumeKg <= 0 && (
-        <div className="text-amber-700">No countable load (bodyweight or timed work)</div>
+        <div className="text-warn">No countable load (bodyweight or timed work)</div>
       )}
     </div>
   );

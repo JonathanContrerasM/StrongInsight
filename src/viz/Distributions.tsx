@@ -2,6 +2,7 @@ import type { RepBin, SetPositionProfile } from '../derive/profile';
 import { ChartFrame, HoverLayer } from '../charts/ChartFrame';
 import { AxisLeft, NotEnoughData, Tooltip, useTooltip } from '../charts/parts';
 import { bandScale, linearScale } from '../charts/scale';
+import { PRIMARY, PRIMARY_SOFT, CONTRAST, AXIS } from '../charts/colour';
 import { formatWeight, toDisplayWeight } from '../format';
 import type { WeightUnit } from '../model/types';
 
@@ -34,7 +35,7 @@ export function RepHistogram({ bins, height = 180 }: { bins: RepBin[]; height?: 
                     y={y(b.setCount)}
                     width={x.bandwidth}
                     height={Math.max(0, innerH - y(b.setCount))}
-                    fill="#3b82f6"
+                    fill={PRIMARY}
                   />
                   {(bins.length <= 24 || b.reps % 5 === 0) && (
                     <text
@@ -42,7 +43,7 @@ export function RepHistogram({ bins, height = 180 }: { bins: RepBin[]; height?: 
                       y={innerH + 12}
                       fontSize={9}
                       textAnchor="middle"
-                      fill="#94a3b8"
+                      fill={AXIS}
                     >
                       {b.reps}
                     </text>
@@ -65,7 +66,7 @@ export function RepHistogram({ bins, height = 180 }: { bins: RepBin[]; height?: 
                     pos.clientY,
                     <div>
                       <div className="font-medium">{b.reps} reps</div>
-                      <div className="text-slate-600">{b.setCount} sets</div>
+                      <div className="text-dim">{b.setCount} sets</div>
                     </div>,
                   );
                 }}
@@ -74,7 +75,7 @@ export function RepHistogram({ bins, height = 180 }: { bins: RepBin[]; height?: 
           );
         }}
       </ChartFrame>
-      <p className="mt-1 text-xs text-slate-500">One bar per rep count, not grouped into zones.</p>
+      <p className="mt-1 text-xs text-dim">One bar per rep count, not grouped into zones.</p>
       <Tooltip state={tip} />
     </div>
   );
@@ -150,14 +151,14 @@ export function SetPositionChart({
                     y={yReps(p.meanReps ?? 0)}
                     width={x.bandwidth}
                     height={Math.max(0, innerH - yReps(p.meanReps ?? 0))}
-                    fill="#bfdbfe"
+                    fill={PRIMARY_SOFT}
                   />
                   <text
                     x={x(i) + x.bandwidth / 2}
                     y={innerH + 12}
                     fontSize={9}
                     textAnchor="middle"
-                    fill="#94a3b8"
+                    fill={AXIS}
                   >
                     {p.setOrder}
                   </text>
@@ -165,7 +166,7 @@ export function SetPositionChart({
               ))}
               {maxLoad > 0 && (
                 <>
-                  <path d={loadPath} fill="none" stroke="#ea580c" strokeWidth={2} />
+                  <path d={loadPath} fill="none" stroke={CONTRAST} strokeWidth={2} />
                   {pts.map((p, i) =>
                     p.meanLoadKg === null ? null : (
                       <circle
@@ -173,7 +174,7 @@ export function SetPositionChart({
                         cx={x(i) + x.bandwidth / 2}
                         cy={yLoad(toDisplayWeight(p.meanLoadKg, unit))}
                         r={3}
-                        fill="#ea580c"
+                        fill={CONTRAST}
                       />
                     ),
                   )}
@@ -195,15 +196,15 @@ export function SetPositionChart({
                     pos.clientY,
                     <div className="space-y-0.5">
                       <div className="font-medium">Set {p.setOrder}</div>
-                      <div className="text-slate-600">
+                      <div className="text-dim">
                         {p.meanReps === null ? 'no reps' : p.meanReps.toFixed(1) + ' reps average'}
                       </div>
-                      <div className="text-slate-600">
+                      <div className="text-dim">
                         {p.meanLoadKg === null
                           ? 'no resolvable load'
                           : formatWeight(p.meanLoadKg, unit, 1) + ' average'}
                       </div>
-                      <div className="text-slate-500">{p.setCount} sets</div>
+                      <div className="text-dim">{p.setCount} sets</div>
                     </div>,
                   );
                 }}
@@ -212,15 +213,15 @@ export function SetPositionChart({
           );
         }}
       </ChartFrame>
-      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
+      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-dim">
         <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-2.5 w-2.5 rounded-sm bg-blue-200" /> mean reps
+          <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[var(--chart-primary-soft)]" /> mean reps
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-0.5 w-4" style={{ background: '#ea580c' }} /> mean load
+          <span className="inline-block h-0.5 w-4" style={{ background: CONTRAST }} /> mean load
         </span>
       </div>
-      <p className="mt-1 text-xs text-slate-500">{SHAPE_COPY[profile.shape]}</p>
+      <p className="mt-1 text-xs text-dim">{SHAPE_COPY[profile.shape]}</p>
       <Tooltip state={tip} />
     </div>
   );
