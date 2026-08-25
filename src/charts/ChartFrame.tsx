@@ -30,15 +30,61 @@ export function useMeasuredWidth<T extends HTMLElement>(): [React.RefObject<T | 
   return [ref, width];
 }
 
+/**
+ * L-shaped marks at the four corners of the plot area.
+ *
+ * Purely decorative, and the one piece of pure ornament in the chart layer: it
+ * is what makes a plot read as an instrument panel rather than a bare graph.
+ * Drawn as paths so it never disturbs the rect counts the render tests use.
+ */
+export function CornerTicks({
+  innerW,
+  innerH,
+  size = 6,
+}: {
+  innerW: number;
+  innerH: number;
+  size?: number;
+}) {
+  if (innerW <= size * 2 || innerH <= size * 2) return null;
+  const d = [
+    'M0,' + size + 'V0H' + size,
+    'M' + (innerW - size) + ',0H' + innerW + 'V' + size,
+    'M' + innerW + ',' + (innerH - size) + 'V' + innerH + 'H' + (innerW - size),
+    'M' + size + ',' + innerH + 'H0V' + (innerH - size),
+  ].join(' ');
+  return (
+    <path
+      d={d}
+      fill="none"
+      stroke={CORNER_INK}
+      strokeWidth={1}
+      strokeOpacity={0.5}
+      aria-hidden
+    />
+  );
+}
+
+const CORNER_INK = 'var(--chart-axis)';
+
 export type ChartFrameProps = {
   height: number;
   margin?: Partial<Margin>;
   label: string;
   className?: string;
+  /** Draws the instrument-panel corner marks around the plot area. */
+  corners?: boolean;
   children: (dims: { innerW: number; innerH: number; margin: Margin; width: number }) => ReactNode;
 };
 
-export function ChartFrame({ height, margin, label, className, children }: ChartFrameProps) {
+export function ChartFrame({
+  height,
+  margin,
+  label,
+  className,
+  corners = false,
+  children,
+}: ChartFrameProps) {
   const [ref, width] = useMeasuredWidth<HTMLDivElement>();
   const m = useMemo<Margin>(() => ({ ...DEFAULT_MARGIN, ...margin }), [margin]);
 
@@ -50,6 +96,7 @@ export function ChartFrame({ height, margin, label, className, children }: Chart
       {width > 0 && (
         <svg width={width} height={height} role="img" aria-label={label}>
           <g transform={'translate(' + m.left + ',' + m.top + ')'}>
+            {corners && <CornerTicks innerW={innerW} innerH={innerH} />}
             {children({ innerW, innerH, margin: m, width })}
           </g>
         </svg>

@@ -1,23 +1,7 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { useWorkoutData } from '../store/useWorkoutData';
 import { formatDate, formatDuration } from '../format';
-
-function Stat({ label, value, tone }: { label: string; value: string | number; tone?: 'warn' | 'bad' | 'good' }) {
-  const toneClass =
-    tone === 'bad'
-      ? 'text-red-700'
-      : tone === 'warn'
-        ? 'text-amber-700'
-        : tone === 'good'
-          ? 'text-emerald-700'
-          : 'text-slate-900';
-  return (
-    <div className="rounded border border-slate-200 bg-white px-3 py-2">
-      <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
-      <div className={'text-lg font-semibold tabular-nums ' + toneClass}>{value}</div>
-    </div>
-  );
-}
+import { Badge, Card, Notice, SectionLabel, Tile, type Tone } from '../ui/primitives';
 
 export function Import() {
   const data = useWorkoutData();
@@ -47,108 +31,256 @@ export function Import() {
   const blocked = data.sets.filter((s) => s.effectiveLoadKg === null && !s.isUnloaded).length;
   const unconfirmedSets = data.sets.filter((s) => !s.metaConfirmed).length;
 
-  return (
-    <div className="space-y-6">
-      <div
-        onDragOver={(e) => {
+  const dropzone = (
+    <div
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragging(false);
+        const file = e.dataTransfer.files[0];
+        if (file) void handleFile(file);
+      }}
+      onClick={() => inputRef.current?.click()}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          setDragging(true);
-        }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragging(false);
-          const file = e.dataTransfer.files[0];
-          if (file) void handleFile(file);
-        }}
-        onClick={() => inputRef.current?.click()}
-        className={
-          'cursor-pointer rounded-lg border-2 border-dashed px-6 py-10 text-center transition ' +
-          (dragging ? 'border-sky-500 bg-sky-50' : 'border-slate-300 bg-slate-50 hover:bg-slate-100')
+          inputRef.current?.click();
         }
-      >
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".csv,text/csv"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) void handleFile(file);
-            e.target.value = '';
-          }}
-        />
-        <p className="text-base font-medium text-slate-700">
-          {busy ? 'Importing...' : 'Drop your Strong CSV export here'}
-        </p>
-        <p className="mt-1 text-sm text-slate-500">
-          Importing replaces the current history entirely. The previous import is archived.
+      }}
+      className={
+        'group cursor-pointer rounded-xl border-2 border-dashed transition-colors ' +
+        (hasImport ? 'px-6 py-8 ' : 'px-6 py-14 ') +
+        (dragging
+          ? 'border-accent bg-accent-bg'
+          : 'border-line-strong bg-surface hover:border-accent hover:bg-sunken')
+      }
+    >
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".csv,text/csv"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void handleFile(file);
+          e.target.value = '';
+        }}
+      />
+      <div className="flex flex-col items-center gap-3 text-center">
+        <span
+          className={
+            'flex h-11 w-11 items-center justify-center rounded-full transition-colors ' +
+            (dragging ? 'bg-accent text-accent-on' : 'bg-sunken text-dim group-hover:text-ink')
+          }
+          aria-hidden
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M10 13V3.5M10 3.5 6.5 7M10 3.5 13.5 7" />
+            <path d="M3.5 12.5v2A2.5 2.5 0 0 0 6 17h8a2.5 2.5 0 0 0 2.5-2.5v-2" />
+          </svg>
+        </span>
+        <div>
+          <p className="text-base font-semibold text-ink">
+            {busy ? 'Reading your export...' : 'Drop your Strong CSV export here'}
+          </p>
+          <p className="mt-1 text-sm text-dim">
+            or click to choose a file &middot; importing replaces the current history, and the
+            previous import is archived
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+
+  // --- the landing, before anything has been imported -------------------------
+  if (!hasImport && !data.parseError) {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <div className="pb-8 pt-6 text-center sm:pt-12">
+          <Badge tone="accent" dot className="mb-5">
+            Nothing leaves this browser
+          </Badge>
+          <h1 className="text-3xl font-bold tracking-tight text-ink sm:text-4xl">
+            Two years of training,
+            <br />
+            <span className="text-accent-ink">read properly.</span>
+          </h1>
+          <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-dim">
+            StrongInsight turns a Strong CSV export into the analysis the app itself never shows
+            you &mdash; real volume with bodyweight counted, split detection, balance, and how your
+            training actually changed over time.
+          </p>
+        </div>
+
+        {dropzone}
+
+        {error && (
+          <div className="mt-4">
+            <Notice tone="danger" title="Import failed">
+              <p className="whitespace-pre-wrap">{error}</p>
+            </Notice>
+          </div>
+        )}
+
+        <div className="mt-10 grid gap-3 sm:grid-cols-3">
+          <Step
+            n="01"
+            title="Export from Strong"
+            body="Settings, then Export Data. Strong emails you a CSV."
+          />
+          <Step
+            n="02"
+            title="Drop it above"
+            body="Parsed in-page. No upload, no account, no backend."
+          />
+          <Step
+            n="03"
+            title="Confirm the tags"
+            body="Exercise metadata starts as a guess. The tray shows what still needs you."
+          />
+        </div>
+
+        <p className="mt-8 text-center text-xs text-faint">
+          No export handy? The repository ships a synthetic one at{' '}
+          <code className="num rounded bg-sunken px-1 py-0.5 text-ink">
+            fixtures/sample_workouts.csv
+          </code>
+          .
         </p>
       </div>
+    );
+  }
+
+  // --- the ingest report, once something is loaded -----------------------------
+  return (
+    <div className="space-y-6">
+      {dropzone}
 
       {error && (
-        <div className="rounded border border-red-300 bg-red-50 p-4 text-sm text-red-800">
-          <p className="font-semibold">Import failed</p>
-          <p className="mt-1 whitespace-pre-wrap">{error}</p>
-        </div>
+        <Notice tone="danger" title="Import failed">
+          <p className="whitespace-pre-wrap">{error}</p>
+        </Notice>
       )}
 
       {data.parseError && (
-        <div className="rounded border border-red-300 bg-red-50 p-4 text-sm text-red-800">
-          <p className="font-semibold">The stored import could not be parsed</p>
-          <p className="mt-1 whitespace-pre-wrap">{data.parseError}</p>
-        </div>
+        <Notice tone="danger" title="The stored import could not be parsed">
+          <p className="whitespace-pre-wrap">{data.parseError}</p>
+        </Notice>
       )}
 
       {hasImport && !data.parseError && (
         <div className="space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">Import report</h2>
-            <p className="text-sm text-slate-500">
-              {data.current?.filename} &middot; imported {formatDate(new Date(data.current?.importedAt ?? 0))}{' '}
-              &middot; delimiter <code className="rounded bg-slate-100 px-1">{r.delimiter === '\t' ? 'tab' : r.delimiter}</code>
-              {!r.delimiterConfident && <span className="text-amber-700"> (low confidence)</span>} &middot; weight read as{' '}
-              {r.unit} <span className="text-slate-400">({r.unitSource === 'header' ? 'from header' : 'from settings'})</span>
-            </p>
-          </div>
+          <SectionLabel>Import report</SectionLabel>
+
+          <Card rail>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+              <span className="font-semibold text-ink">{data.current?.filename}</span>
+              <span className="text-faint">&middot;</span>
+              <span className="text-dim">
+                imported {formatDate(new Date(data.current?.importedAt ?? 0))}
+              </span>
+              <span className="text-faint">&middot;</span>
+              <span className="text-dim">
+                delimiter{' '}
+                <code className="num rounded bg-sunken px-1 text-ink">
+                  {r.delimiter === '\t' ? 'tab' : r.delimiter}
+                </code>
+              </span>
+              {!r.delimiterConfident && <Badge tone="warn">low confidence</Badge>}
+              <span className="text-faint">&middot;</span>
+              <span className="text-dim">
+                weight read as <span className="font-medium text-ink">{r.unit}</span>{' '}
+                <span className="text-faint">
+                  ({r.unitSource === 'header' ? 'from header' : 'from settings'})
+                </span>
+              </span>
+            </div>
+          </Card>
 
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-            <Stat label="Rows read" value={r.rowsRead.toLocaleString()} />
-            <Stat label="Sets parsed" value={r.setsParsed.toLocaleString()} />
-            <Stat label="Working sets" value={r.workingSets.toLocaleString()} />
-            <Stat label="Warm-ups" value={r.warmupSets.toLocaleString()} />
-            <Stat label="Drop sets" value={r.dropSets.toLocaleString()} />
-            <Stat label="Rest rows collapsed" value={r.restRowsCollapsed.toLocaleString()} />
-            <Stat label="Workouts" value={r.workoutCount.toLocaleString()} />
-            <Stat label="Distinct exercises" value={r.exerciseNames.length.toLocaleString()} />
-            <Stat
+            <Tile label="Rows read" value={r.rowsRead.toLocaleString()} />
+            <Tile label="Sets parsed" value={r.setsParsed.toLocaleString()} />
+            <Tile label="Working sets" value={r.workingSets.toLocaleString()} />
+            <Tile label="Warm-ups" value={r.warmupSets.toLocaleString()} />
+            <Tile label="Drop sets" value={r.dropSets.toLocaleString()} />
+            <Tile label="Rest rows collapsed" value={r.restRowsCollapsed.toLocaleString()} />
+            <Tile label="Workouts" value={r.workoutCount.toLocaleString()} />
+            <Tile label="Distinct exercises" value={r.exerciseNames.length.toLocaleString()} />
+            <Tile
               label="Unknown tokens"
               value={r.unknownTokens.length}
-              tone={r.unknownTokens.length > 0 ? 'bad' : 'good'}
+              tone={tone(r.unknownTokens.length > 0, 'danger')}
             />
-            <Stat
+            <Tile
               label="Sets blocked from volume"
               value={blocked.toLocaleString()}
-              tone={blocked > 0 ? 'warn' : 'good'}
+              tone={tone(blocked > 0, 'warn')}
             />
-            <Stat
+            <Tile
               label="Sets with unconfirmed tags"
               value={unconfirmedSets.toLocaleString()}
-              tone={unconfirmedSets > 0 ? 'warn' : 'good'}
+              tone={tone(unconfirmedSets > 0, 'warn')}
             />
-            <Stat
+            <Tile
               label="Date range"
               value={
                 r.dateRange ? formatDate(r.dateRange.from) + ' - ' + formatDate(r.dateRange.to) : '-'
               }
+              size="sm"
+              className="flex flex-col justify-center"
             />
           </div>
 
-          <details className="rounded border border-slate-200 bg-white p-4 text-sm">
-            <summary className="cursor-pointer font-medium text-slate-700">
-              Parser details and anomalies
-            </summary>
-            <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
+          {r.unknownTokens.length > 0 && (
+            <Notice
+              tone="danger"
+              title={
+                r.unknownTokens.length +
+                ' row(s) had a set-order value we do not recognise. They were NOT imported.'
+              }
+            >
+              <div className="mt-2 overflow-x-auto rounded-md border border-danger-line">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-danger-bg">
+                    <tr className="hud-label">
+                      <th className="px-2 py-1.5 font-medium">Line</th>
+                      <th className="px-2 py-1.5 font-medium">Value</th>
+                      <th className="px-2 py-1.5 font-medium">Exercise</th>
+                    </tr>
+                  </thead>
+                  <tbody className="num">
+                    {r.unknownTokens.slice(0, 50).map((t, i) => (
+                      <tr key={i} className="border-t border-danger-line">
+                        <td className="px-2 py-1">{t.line}</td>
+                        <td className="px-2 py-1">
+                          <code className="rounded bg-surface px-1">{t.raw}</code>
+                        </td>
+                        <td className="px-2 py-1 font-sans">{t.exerciseName}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Notice>
+          )}
+
+          <Disclosure summary="Parser details and anomalies">
+            <dl className="grid grid-cols-1 gap-x-8 sm:grid-cols-2">
               <Row label="Rest rows seen" value={r.restRowsSeen} />
               <Row label="Rest rows collapsed onto a set" value={r.restRowsCollapsed} />
               <Row
@@ -167,9 +299,17 @@ export function Import() {
                 warn={r.malformedRestRows > 0}
               />
               <Row label="Isometric sets (seconds logged)" value={r.isometricSets} />
-              <Row label="Sets with load but zero reps" value={r.zeroRepSets} warn={r.zeroRepSets > 0} />
+              <Row
+                label="Sets with load but zero reps"
+                value={r.zeroRepSets}
+                warn={r.zeroRepSets > 0}
+              />
               <Row label="Rows with a distance value" value={r.distanceRows} />
-              <Row label="Date parse failures" value={r.dateParseFailures} warn={r.dateParseFailures > 0} />
+              <Row
+                label="Date parse failures"
+                value={r.dateParseFailures}
+                warn={r.dateParseFailures > 0}
+              />
               <Row
                 label="Headers not recognised"
                 value={r.headersUnrecognised.length}
@@ -178,90 +318,61 @@ export function Import() {
             </dl>
 
             {r.trimmedNames.length > 0 && (
-              <div className="mt-3 rounded bg-amber-50 p-2 text-amber-900">
-                <p className="font-medium">Exercise names with stray whitespace (trimmed):</p>
-                <ul className="mt-1 list-inside list-disc">
-                  {r.trimmedNames.map((n) => (
-                    <li key={n}>
-                      <code className="rounded bg-white px-1">[{n}]</code>
-                    </li>
-                  ))}
-                </ul>
+              <div className="mt-4">
+                <Notice tone="warn" title="Exercise names with stray whitespace (trimmed):">
+                  <ul className="mt-1 flex flex-wrap gap-1.5">
+                    {r.trimmedNames.map((n) => (
+                      <li key={n}>
+                        <code className="num rounded bg-surface px-1 py-0.5 text-ink">[{n}]</code>
+                      </li>
+                    ))}
+                  </ul>
+                </Notice>
               </div>
             )}
 
             {r.nameCollisions.length > 0 && (
-              <div className="mt-3 rounded bg-red-50 p-2 text-red-900">
-                <p className="font-medium">
-                  Trimming merged two different raw names into one. Check these:
-                </p>
-                <ul className="mt-1 list-inside list-disc">
-                  {r.nameCollisions.map((n) => (
-                    <li key={n}>{n}</li>
-                  ))}
-                </ul>
+              <div className="mt-3">
+                <Notice
+                  tone="danger"
+                  title="Trimming merged two different raw names into one. Check these:"
+                >
+                  <ul className="mt-1 list-inside list-disc">
+                    {r.nameCollisions.map((n) => (
+                      <li key={n}>{n}</li>
+                    ))}
+                  </ul>
+                </Notice>
               </div>
             )}
 
             {r.distanceRows > 0 && (
-              <p className="mt-3 rounded bg-slate-50 p-2 text-slate-600">
+              <p className="mt-3 rounded-md bg-sunken p-2.5 text-xs leading-relaxed text-dim">
                 Distance values are stored raw and excluded from every metric: Strong does not
                 record which unit they are in, and this export&apos;s running distances look like
                 kilometres despite the metric setting claiming metres.
               </p>
             )}
-          </details>
-
-          {r.unknownTokens.length > 0 && (
-            <div className="rounded border border-red-300 bg-red-50 p-4 text-sm">
-              <p className="font-semibold text-red-900">
-                {r.unknownTokens.length} row(s) had a set-order value we do not recognise. They were
-                NOT imported.
-              </p>
-              <table className="mt-2 w-full text-left">
-                <thead className="text-xs uppercase text-red-800">
-                  <tr>
-                    <th className="py-1">Line</th>
-                    <th>Value</th>
-                    <th>Exercise</th>
-                  </tr>
-                </thead>
-                <tbody className="tabular-nums">
-                  {r.unknownTokens.slice(0, 50).map((t, i) => (
-                    <tr key={i} className="border-t border-red-200">
-                      <td className="py-1">{t.line}</td>
-                      <td>
-                        <code className="rounded bg-white px-1">{t.raw}</code>
-                      </td>
-                      <td>{t.exerciseName}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          </Disclosure>
 
           {data.workouts.length > 0 && (
-            <details className="rounded border border-slate-200 bg-white p-4 text-sm">
-              <summary className="cursor-pointer font-medium text-slate-700">
-                Most recent workouts
-              </summary>
-              <ul className="mt-2 divide-y divide-slate-100">
+            <Disclosure summary="Most recent workouts">
+              <ul className="divide-y divide-line">
                 {[...data.workouts]
                   .sort((a, b) => b.date.getTime() - a.date.getTime())
                   .slice(0, 10)
                   .map((w) => (
-                    <li key={w.id} className="flex justify-between py-1">
-                      <span>
-                        {formatDate(w.date)} &middot; {w.name}
+                    <li key={w.id} className="flex justify-between gap-4 py-1.5 text-sm">
+                      <span className="text-ink">
+                        <span className="num text-dim">{formatDate(w.date)}</span> &middot; {w.name}
                       </span>
-                      <span className="text-slate-500 tabular-nums">
+                      <span className="num shrink-0 text-dim">
                         {w.setIds.length} sets &middot; {formatDuration(w.durationSec)}
                       </span>
                     </li>
                   ))}
               </ul>
-            </details>
+            </Disclosure>
           )}
         </div>
       )}
@@ -269,11 +380,50 @@ export function Import() {
   );
 }
 
+function tone(active: boolean, t: Tone): Tone {
+  return active ? t : 'good';
+}
+
+function Step({ n, title, body }: { n: string; title: string; body: string }) {
+  return (
+    <div className="rounded-lg border border-line bg-surface p-4">
+      <div className="num text-xs font-semibold text-accent-ink">{n}</div>
+      <div className="mt-2 text-sm font-semibold text-ink">{title}</div>
+      <p className="mt-1 text-xs leading-relaxed text-dim">{body}</p>
+    </div>
+  );
+}
+
+function Disclosure({ summary, children }: { summary: string; children: ReactNode }) {
+  return (
+    <details className="group overflow-hidden rounded-lg border border-line bg-surface">
+      <summary className="flex cursor-pointer items-center gap-2 px-4 py-3 text-sm font-medium text-ink marker:content-['']">
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 12 12"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.75"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+          className="text-faint transition-transform group-open:rotate-90"
+        >
+          <path d="M4.5 2.5 8 6l-3.5 3.5" />
+        </svg>
+        {summary}
+      </summary>
+      <div className="border-t border-line p-4 text-sm">{children}</div>
+    </details>
+  );
+}
+
 function Row({ label, value, warn }: { label: string; value: number; warn?: boolean }) {
   return (
-    <div className="flex justify-between gap-4 border-b border-slate-100 py-0.5">
-      <dt className="text-slate-600">{label}</dt>
-      <dd className={'tabular-nums ' + (warn ? 'font-semibold text-amber-700' : 'text-slate-900')}>
+    <div className="flex justify-between gap-4 border-b border-line py-1">
+      <dt className="text-dim">{label}</dt>
+      <dd className={'num ' + (warn ? 'font-semibold text-warn' : 'text-ink')}>
         {value.toLocaleString()}
       </dd>
     </div>

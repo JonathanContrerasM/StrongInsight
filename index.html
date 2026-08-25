@@ -3,7 +3,49 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#08090b" media="(prefers-color-scheme: dark)" />
+    <meta
+      name="description"
+      content="Local-first analysis of a Strong workout-tracker CSV export. Nothing leaves your browser."
+    />
     <title>StrongInsight</title>
+    <script>
+      /*
+       * Runs before first paint so a dark-mode reload never flashes white.
+       * This is the reason the theme preference lives in localStorage rather
+       * than in the IndexedDB-backed Settings: IDB is async, and anything read
+       * asynchronously arrives too late to prevent the flash.
+       *
+       * Keep the storage key in sync with STORAGE_KEY in src/ui/theme.ts.
+       */
+      (function () {
+        var dark = false;
+        try {
+          var stored = localStorage.getItem('stronginsight:theme') || 'system';
+          dark =
+            stored === 'dark' ||
+            (stored !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        } catch (err) {
+          // Storage can throw in private-browsing modes. Fall back to the OS.
+          try {
+            dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          } catch (err2) {
+            dark = false;
+          }
+        }
+        var el = document.documentElement;
+        // MUST be <html>: the chart tooltip portals to document.body, so a class
+        // on <body> or on the app root would never reach it.
+        el.classList.toggle('dark', dark);
+        // In dev, Vite injects the stylesheet from a module, so there is a real
+        // moment with no CSS at all. These two inline styles cover it. The hex
+        // values mirror --c-canvas in src/index.css -- change both together.
+        el.style.colorScheme = dark ? 'dark' : 'light';
+        el.style.backgroundColor = dark ? '#08090b' : '#f5f6f8';
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

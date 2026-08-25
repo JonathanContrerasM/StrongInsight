@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { CooccurrenceResult } from '../derive/cooccurrence';
-import { categorical, sequential, NEUTRAL_INK } from '../charts/colour';
+import { categorical, sequential, NEUTRAL_INK, INK, INK_DIM, MUTED } from '../charts/colour';
 import { ChartCard, NotEnoughData, Tooltip, useTooltip } from '../charts/parts';
 
 /**
@@ -54,7 +54,7 @@ export function SplitMatrix({
   return (
     <div className="space-y-3">
       {!result.wellSeparated && (
-        <p className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
+        <p className="rounded border border-warn-line bg-warn-bg p-2 text-xs text-warn">
           These groups are <strong>not well separated</strong> (silhouette{' '}
           {result.silhouette.toFixed(2)}). Your sessions do not repeat consistent exercise groupings,
           so treat the blocks below as weak structure rather than a routine.
@@ -80,7 +80,7 @@ export function SplitMatrix({
               textAnchor="end"
               dy="0.32em"
               fontSize={Math.min(10, cell)}
-              fill={hover && hover.i === i ? '#0f172a' : '#64748b'}
+              fill={hover && hover.i === i ? INK : INK_DIM}
               fontWeight={hover && hover.i === i ? 600 : 400}
               style={{ cursor: onSelectExercise ? 'pointer' : 'default' }}
               onClick={() => onSelectExercise?.(name)}
@@ -105,7 +105,7 @@ export function SplitMatrix({
                     rx={1}
                     // The diagonal is always 1 and meaningless as similarity;
                     // render it muted so it does not dominate the grid.
-                    fill={isDiag ? '#cbd5e1' : sequential(0.06 + v * 0.94)}
+                    fill={isDiag ? MUTED : sequential(0.06 + v * 0.94)}
                     opacity={highlighted || !hover ? 1 : 0.45}
                     onMouseEnter={(e) => {
                       setHover({ i, j });
@@ -134,7 +134,7 @@ export function SplitMatrix({
         </svg>
       </div>
 
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-dim">
         Colour is cosine similarity: how often two exercises share a session, normalised so a
         frequent staple does not look similar to everything. Boxes are the detected groups.
         {cropped > 0 && ' Showing the ' + shown + ' most-trained of ' + result.order.length + '.'}
@@ -169,7 +169,7 @@ function MatrixTip({ result, i, j }: { result: CooccurrenceResult; i: number; j:
     return (
       <div>
         <div className="font-medium">{a}</div>
-        <div className="text-slate-600">Appears in {aN} sessions</div>
+        <div className="text-dim">Appears in {aN} sessions</div>
       </div>
     );
   }
@@ -184,12 +184,12 @@ function MatrixTip({ result, i, j }: { result: CooccurrenceResult; i: number; j:
       <div className="font-medium">
         {a} + {b}
       </div>
-      <div className="text-slate-600">
+      <div className="text-dim">
         {shared} shared sessions (of {aN} and {bN})
       </div>
-      <div className="text-slate-600">similarity {sim.toFixed(2)}</div>
+      <div className="text-dim">similarity {sim.toFixed(2)}</div>
       {shared >= 5 && (
-        <div className="text-slate-500">
+        <div className="text-dim">
           {lift >= 1.15
             ? lift.toFixed(1) + '× more often than chance'
             : lift <= 0.85
@@ -217,7 +217,7 @@ export function SplitPanel({
         <>
           Strong labels every session by time of day, so your routine is invisible in the raw
           export. This groups exercises by which sessions they share.{' '}
-          <span className="text-slate-400">
+          <span className="text-faint">
             Grouping uses no metadata at all; only the group names do.
           </span>
         </>
@@ -228,30 +228,30 @@ export function SplitPanel({
 
         <div className="space-y-2">
           {result.clusters.map((c, i) => (
-            <div key={c.label + i} className="rounded border border-slate-200 p-2">
+            <div key={c.label + i} className="rounded border border-line p-2">
               <div className="flex items-center justify-between gap-2">
-                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-900">
+                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink">
                   <span
                     className="inline-block h-2.5 w-2.5 rounded-sm"
                     style={{ background: categorical(i) }}
                   />
                   {c.label}
                 </span>
-                <span className="text-xs text-slate-500 tabular-nums">
+                <span className="text-xs text-dim tabular-nums">
                   {c.members.length} exercises
                 </span>
               </div>
-              <div className="mt-1 text-xs text-slate-500">
+              <div className="mt-1 text-xs text-dim">
                 trained in {c.workoutCount} sessions &middot; cohesion {c.cohesion.toFixed(2)}
               </div>
-              <div className="mt-1 text-xs text-slate-600">
+              <div className="mt-1 text-xs text-dim">
                 {c.members.slice(0, 6).join(', ')}
                 {c.members.length > 6 && ' +' + (c.members.length - 6) + ' more'}
               </div>
             </div>
           ))}
 
-          <div className="rounded border border-slate-200 p-2 text-xs text-slate-500">
+          <div className="rounded border border-line p-2 text-xs text-dim">
             <div>
               Separation score {result.silhouette.toFixed(2)}{' '}
               {result.wellSeparated ? '(clear structure)' : '(weak structure)'}
@@ -263,7 +263,7 @@ export function SplitPanel({
               <button
                 type="button"
                 onClick={() => setShowRare((v) => !v)}
-                className="mt-1 underline hover:text-slate-700"
+                className="mt-1 underline hover:text-ink"
               >
                 {result.tooRare.length} exercises too rare to place
               </button>
@@ -272,7 +272,7 @@ export function SplitPanel({
               <ul className="mt-1 max-h-40 overflow-y-auto">
                 {result.tooRare.map((t) => (
                   <li key={t.name}>
-                    {t.name} <span className="text-slate-400">({t.appearances})</span>
+                    {t.name} <span className="text-faint">({t.appearances})</span>
                   </li>
                 ))}
               </ul>
