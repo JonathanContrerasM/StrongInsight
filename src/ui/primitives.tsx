@@ -237,6 +237,12 @@ export function SegmentedControl<T extends string>({
 }
 
 /** Label + control pairing, so every form field in the app lines up. */
+/**
+ * Note that `hint` renders BELOW the control and so adds to the field's height.
+ * In a row aligned with `items-end`, mixing hinted and unhinted fields therefore
+ * pushes the hinted one's input upward by the height of its caption. Put the
+ * hint on all of them or none of them, or move it out of the row entirely.
+ */
 export function Field({
   label,
   hint,

@@ -1,14 +1,13 @@
-import { useCallback, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { useWorkoutData } from '../store/useWorkoutData';
 import { formatDate, formatDuration } from '../format';
 import { Badge, Card, Notice, SectionLabel, Tile, type Tone } from '../ui/primitives';
+import { CsvDropzone } from '../ui/CsvDropzone';
 
 export function Import() {
   const data = useWorkoutData();
-  const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = useCallback(
     async (file: File) => {
@@ -32,79 +31,14 @@ export function Import() {
   const unconfirmedSets = data.sets.filter((s) => !s.metaConfirmed).length;
 
   const dropzone = (
-    <div
-      onDragOver={(e) => {
-        e.preventDefault();
-        setDragging(true);
-      }}
-      onDragLeave={() => setDragging(false)}
-      onDrop={(e) => {
-        e.preventDefault();
-        setDragging(false);
-        const file = e.dataTransfer.files[0];
-        if (file) void handleFile(file);
-      }}
-      onClick={() => inputRef.current?.click()}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          inputRef.current?.click();
-        }
-      }}
-      className={
-        'group cursor-pointer rounded-xl border-2 border-dashed transition-colors ' +
-        (hasImport ? 'px-6 py-8 ' : 'px-6 py-14 ') +
-        (dragging
-          ? 'border-accent bg-accent-bg'
-          : 'border-line-strong bg-surface hover:border-accent hover:bg-sunken')
-      }
-    >
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".csv,text/csv"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) void handleFile(file);
-          e.target.value = '';
-        }}
-      />
-      <div className="flex flex-col items-center gap-3 text-center">
-        <span
-          className={
-            'flex h-11 w-11 items-center justify-center rounded-full transition-colors ' +
-            (dragging ? 'bg-accent text-accent-on' : 'bg-sunken text-dim group-hover:text-ink')
-          }
-          aria-hidden
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M10 13V3.5M10 3.5 6.5 7M10 3.5 13.5 7" />
-            <path d="M3.5 12.5v2A2.5 2.5 0 0 0 6 17h8a2.5 2.5 0 0 0 2.5-2.5v-2" />
-          </svg>
-        </span>
-        <div>
-          <p className="text-base font-semibold text-ink">
-            {busy ? 'Reading your export...' : 'Drop your Strong CSV export here'}
-          </p>
-          <p className="mt-1 text-sm text-dim">
-            or click to choose a file &middot; importing replaces the current history, and the
-            previous import is archived
-          </p>
-        </div>
-      </div>
-    </div>
+    <CsvDropzone
+      onFile={(f) => void handleFile(f)}
+      busy={busy}
+      compact={hasImport}
+      title="Drop your Strong CSV export here"
+      busyTitle="Reading your export..."
+      subtitle="or click to choose a file · importing replaces the current history, and the previous import is archived"
+    />
   );
 
   // --- the landing, before anything has been imported -------------------------
@@ -116,7 +50,7 @@ export function Import() {
             Nothing leaves this browser
           </Badge>
           <h1 className="text-3xl font-bold tracking-tight text-ink sm:text-4xl">
-            Two years of training,
+            Every set you&rsquo;ve logged,
             <br />
             <span className="text-accent-ink">read properly.</span>
           </h1>
