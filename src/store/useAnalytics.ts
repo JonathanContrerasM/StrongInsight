@@ -5,6 +5,7 @@ import { calendarDays, type DayCell } from '../derive/series';
 import { balanceSeries, balanceVerdict, volumeMatrix, type GroupBy } from '../derive/balance';
 import { habitMap, repDensity, muscleGroup } from '../derive/profile';
 import { cooccurrence, type CooccurrenceResult } from '../derive/cooccurrence';
+import { findings, type FindingSet } from '../derive/insights';
 import type { ExerciseMeta } from '../model/types';
 import type { Granularity } from '../derive/buckets';
 
@@ -129,6 +130,17 @@ export function useAnalytics({ granularity, groupBy }: AnalyticsOptions) {
 
   const unconfirmedSets = useMemo(() => sets.filter((s) => !s.metaConfirmed).length, [sets]);
 
+  /**
+   * The weakness engine. Kept out of the `split` memo above deliberately: that
+   * one is keyed on a session signature so tagging does not re-cluster, whereas
+   * these rules genuinely do depend on metadata -- retagging an exercise changes
+   * which muscle it counts toward.
+   */
+  const insights: FindingSet = useMemo(
+    () => findings(sets, lookup, { weekStartsOn: settings.weekStartsOn }),
+    [sets, lookup, settings.weekStartsOn],
+  );
+
   return {
     sets: sets as EnrichedSet[],
     days,
@@ -142,6 +154,7 @@ export function useAnalytics({ granularity, groupBy }: AnalyticsOptions) {
     clusterOfDay,
     clusterLabels: split.clusters.map((c) => c.label),
     unconfirmedSets,
+    insights,
     lookup,
   };
 }

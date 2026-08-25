@@ -5,14 +5,16 @@ import { TaggingTray } from './views/TaggingTray';
 import { ExerciseList } from './views/ExerciseList';
 import { SettingsView } from './views/Settings';
 import { Dashboard } from './views/Dashboard';
+import { Improvements } from './views/Improvements';
 import { ExerciseDetail } from './views/ExerciseDetail';
 import { ThemeControl } from './ui/ThemeControl';
 import { Badge, Notice } from './ui/primitives';
 
-type Tab = 'dashboard' | 'import' | 'tray' | 'exercises' | 'settings';
+type Tab = 'dashboard' | 'improvements' | 'import' | 'tray' | 'exercises' | 'settings';
 
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'dashboard', label: 'Dashboard' },
+  { id: 'improvements', label: 'Improvements' },
   { id: 'exercises', label: 'Exercises' },
   { id: 'tray', label: 'Tagging tray' },
   { id: 'import', label: 'Import' },
@@ -47,7 +49,10 @@ function Shell() {
   }
 
   const hasData = data.current !== null;
-  const activeTab: Tab = !hasData && tab === 'dashboard' ? 'import' : tab;
+  // Both the dashboard and the weakness engine have nothing to say without a
+  // corpus, so an empty app lands on Import rather than on an empty state.
+  const activeTab: Tab =
+    !hasData && (tab === 'dashboard' || tab === 'improvements') ? 'import' : tab;
 
   const openExercise = (name: string) => {
     setDetail(name);
@@ -173,6 +178,7 @@ function Shell() {
         {activeTab === 'dashboard' && (
           <Dashboard onSelectExercise={openExercise} onGoToTray={() => setTab('tray')} />
         )}
+        {activeTab === 'improvements' && <Improvements onSelectExercise={openExercise} />}
         {activeTab === 'exercises' &&
           (detail ? (
             <ExerciseDetail
