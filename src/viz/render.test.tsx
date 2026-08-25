@@ -24,6 +24,8 @@ import {
   SessionPeaksChart,
 } from './TimeSeries';
 import { RepHistogram, SetPositionChart } from './Distributions';
+import { Sparkline, WeekdayBars } from './Insights';
+import { findings } from '../derive/insights';
 import type { ExerciseMeta } from '../model/types';
 import { SAMPLE_FIXTURE } from '../test/fixtures';
 
@@ -193,6 +195,76 @@ describe('charts mount on the sample corpus', () => {
 });
 
 // --- degenerate inputs --------------------------------------------------------
+
+describe('insight charts', () => {
+  const rates = [
+    { weekday: 0, trained: 20, available: 50 },
+    { weekday: 1, trained: 18, available: 50 },
+    { weekday: 2, trained: 22, available: 50 },
+    { weekday: 3, trained: 19, available: 50 },
+    { weekday: 4, trained: 21, available: 50 },
+    { weekday: 5, trained: 3, available: 50 },
+    { weekday: 6, trained: 17, available: 50 },
+  ];
+
+  it('weekday bars draw a bar per day plus the reference line', () => {
+    const el = render(<WeekdayBars rates={rates} overall={0.28} flagged={5} weekStartsOn={1} />);
+    expect(el.querySelectorAll('rect').length).toBeGreaterThanOrEqual(7);
+    // The dashed comparison line is the whole point of the chart.
+    expect(el.querySelector('line[stroke-dasharray]')).toBeTruthy();
+  });
+
+  it('weekday bars respect the week-start setting', () => {
+    // `render` reuses one container, so each variant must be read before the
+    // next render replaces it. The axis tick labels come first in document
+    // order, hence selecting the centred category labels specifically.
+    const firstColumn = (weekStartsOn: 0 | 1) =>
+      render(
+        <WeekdayBars rates={rates} overall={0.28} flagged={5} weekStartsOn={weekStartsOn} />,
+      ).querySelector('text[text-anchor="middle"]')?.textContent;
+
+    expect(firstColumn(1)).toBe('Mon');
+    expect(firstColumn(0)).toBe('Sun');
+  });
+
+  it('sparkline draws the series and the fitted line', () => {
+    const el = render(<Sparkline values={[5, 4, 4, 3, 2]} trend={[5, 2]} label="test" />);
+    expect(el.querySelectorAll('path').length).toBeGreaterThan(0);
+    expect(el.querySelector('line[stroke-dasharray]')).toBeTruthy();
+  });
+
+  it('sparkline refuses a single point rather than drawing nothing', () => {
+    const el = render(<Sparkline values={[5]} label="test" />);
+    expect(el.querySelectorAll('svg').length).toBe(0);
+    expect(el.textContent).toMatch(/at least 2/);
+  });
+
+  /** Every chart payload the engine emits must be renderable. */
+  it('renders whatever the engine attaches to a finding', () => {
+    const r = findings(sets, lookup, { weekStartsOn: 1 });
+    for (const f of r.findings) {
+      if (!f.chart) continue;
+      const el =
+        f.chart.type === 'weekday'
+          ? render(
+              <WeekdayBars
+                rates={f.chart.rates}
+                overall={f.chart.overall}
+                flagged={f.chart.flagged}
+                weekStartsOn={1}
+              />,
+            )
+          : render(
+              <Sparkline
+                values={f.chart.values}
+                trend={f.chart.trend ?? undefined}
+                label={f.title}
+              />,
+            );
+      expect(el).toBeTruthy();
+    }
+  });
+});
 
 describe('charts survive empty and tiny data', () => {
   it('renders an explanation rather than an empty frame when there is nothing', () => {
