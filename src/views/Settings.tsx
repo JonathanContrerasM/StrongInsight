@@ -152,7 +152,7 @@ export function SettingsView() {
       <Section
         label="Bodyweight"
         title="Bodyweight history"
-        blurb="31% of the working sets in this corpus are bodyweight movements, so without this every pull up and push up computes to zero volume. Values are interpolated linearly between entries and clamped outside the recorded range."
+        blurb="Bodyweight movements are logged at zero load, so without a recorded bodyweight every pull up, dip and push up computes to zero volume. Values are interpolated linearly between entries and clamped outside the recorded range."
       >
         {data.bodyweight.length === 0 && (
           <div className="mt-3">
