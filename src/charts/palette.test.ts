@@ -136,6 +136,31 @@ describe.each(THEMES)('$name theme', ({ vars }) => {
     expect(steps.at(-1)!).toBeGreaterThan(7);
   });
 
+  /**
+   * Ordering alone let the ramp drift almost invisible: five of nine light steps
+   * once sat under 2:1, so a busy week and an untrained one looked the same.
+   * Charts only ever draw from index 1 up -- MuscleHeatmap starts at t=0.1 and
+   * quantileBinner deliberately skips the weakest step -- so that is where the
+   * floor applies.
+   */
+  it('keeps every drawn sequential step visible against the surface', () => {
+    const steps = SEQUENTIAL.map((ref) => contrast(resolve(vars, ref), surface));
+    for (let i = 1; i < steps.length; i++) {
+      expect(steps[i], 'seq step ' + i + ' vs surface').toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  /**
+   * "Trained a little" and "no session at all" are different facts and must not
+   * be the same colour. Index 0 is the weakest thing the ramp can say; the empty
+   * fill has to stay clearly quieter than it.
+   */
+  it('separates the weakest sequential step from the empty fill', () => {
+    const seq0 = contrast(resolve(vars, SEQUENTIAL[0]!), surface);
+    const empty = contrast(vars['--chart-empty']!, surface);
+    expect(seq0 - empty, 'seq-0 must out-read --chart-empty').toBeGreaterThanOrEqual(0.2);
+  });
+
   it('keeps the diverging midpoint the quietest colour in its ramp', () => {
     const steps = DIVERGING.map((ref) => contrast(resolve(vars, ref), surface));
     const mid = steps[4]!;
@@ -145,6 +170,19 @@ describe.each(THEMES)('$name theme', ({ vars }) => {
     // Both extremes must shout equally; a lopsided ramp reads as bias.
     expect(steps[0]!).toBeGreaterThan(4);
     expect(steps.at(-1)!).toBeGreaterThan(4);
+  });
+
+  /**
+   * Quietest is not the same as absent. The midpoint still has to read as a
+   * drawn cell, and every step either side of it is a graphic conveying
+   * information, so it takes the 3:1 mark floor.
+   */
+  it('keeps the whole diverging ramp visible against the surface', () => {
+    const steps = DIVERGING.map((ref) => contrast(resolve(vars, ref), surface));
+    steps.forEach((c, i) => {
+      if (i !== 4) expect(c, 'div step ' + i + ' vs surface').toBeGreaterThanOrEqual(2.9);
+    });
+    expect(steps[4], 'the neutral midpoint is quiet, not invisible').toBeGreaterThanOrEqual(1.5);
   });
 
   it('gives every categorical slot a distinct, visible colour', () => {

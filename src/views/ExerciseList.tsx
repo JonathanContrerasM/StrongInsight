@@ -78,13 +78,18 @@ export function ExerciseList({ onSelectExercise }: { onSelectExercise?: (name: s
         </p>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-line bg-surface">
+      {/* The height cap is what makes the sticky header below work at all:
+          `overflow-x` forces `overflow-y` to compute to `auto`, so this div is
+          already the header's scroll container. Unbounded it never scrolls, and
+          a viewport-relative offset just shoved the header into the first rows. */}
+      <div className="overflow-auto rounded-lg border border-line bg-surface md:max-h-[calc(100vh-13rem)]">
         <table className="w-full min-w-[64rem] border-collapse text-left text-sm">
           {/* Sortable headers replace the old sort dropdown: the sort belongs on
               the column it sorts, not in a control three feet away from it. */}
-          {/* Sticky only from md up: below that the shell grows a second nav row,
-              so a 3.5rem offset would park the header behind it. */}
-          <thead className="z-10 bg-sunken md:sticky md:top-14">
+          {/* Sticky only from md up: below that the table has no height cap, so
+              there is nothing to scroll it against. `top-0` is the top of the
+              scroll box above, not of the viewport. */}
+          <thead className="z-10 bg-sunken md:sticky md:top-0">
             <tr>
               <Th sortKey="name" sort={sort} onSort={setSort}>
                 Exercise
@@ -224,7 +229,13 @@ function Th({
     <th
       scope="col"
       aria-sort={active ? 'descending' : undefined}
-      className={'border-b border-line px-3 py-2 font-medium ' + alignCls}
+      // Background and rule live on the cell, not the row: `border-collapse`
+      // paints collapsed borders with the table, so a `border-b` here tears off
+      // as rows scroll under. And rows hover to the same `bg-sunken`, so the
+      // header band has to be opaque in its own right.
+      className={
+        'bg-sunken px-3 py-2 font-medium shadow-[inset_0_-1px_0_var(--c-border)] ' + alignCls
+      }
     >
       {sortKey && onSort ? (
         <button
