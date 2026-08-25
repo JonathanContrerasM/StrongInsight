@@ -7,3 +7,5 @@ dist
 # Personal training export. Never commit this: it is two years of real session
 # history with exact timestamps. A synthetic sample ships instead, see README.
 fixtures/strong_workouts.csv
+# Same rule for the measurements export -- a decade of real bodyweight readings.
+fixtures/strong_weight.csv

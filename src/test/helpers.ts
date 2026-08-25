@@ -61,6 +61,39 @@ function quote(s: string): string {
   return '"' + s.replace(/"/g, '""') + '"';
 }
 
+export const GERMAN_WEIGHT_HEADERS = 'Datum,Measurement Type,Value,Unit,Source';
+
+export type WeightRowSpec = {
+  date?: string;
+  type?: string;
+  value?: number | string;
+  unit?: string;
+  source?: string;
+};
+
+/** The measurements export, same intent-over-bytes idea as `makeCsv`. */
+export function makeBodyweightCsv(
+  rows: WeightRowSpec[],
+  opts: { headers?: string; delimiter?: string; eol?: string; trailingNewline?: boolean } = {},
+): string {
+  const d = opts.delimiter ?? ',';
+  const eol = opts.eol ?? CRLF;
+  const header = opts.headers ?? GERMAN_WEIGHT_HEADERS;
+  const headerLine = d === ',' ? header : header.split(',').join(d);
+
+  const body = rows.map((r) =>
+    [
+      r.date ?? '2023-03-01 08:00:00',
+      r.type ?? 'Gewicht',
+      String(r.value ?? 80),
+      r.unit ?? 'kg',
+      r.source ?? 'Strong',
+    ].join(d),
+  );
+
+  return [headerLine, ...body].join(eol) + (opts.trailingNewline === false ? '' : eol);
+}
+
 /** Enrich parser output with hand-built metadata, the way the app does. */
 export function enrich(
   sets: ParsedSet[],
