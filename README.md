@@ -1,7 +1,20 @@
 # StrongInsight
 
+[![CI](https://github.com/JonathanContrerasM/StrongInsight/actions/workflows/ci.yml/badge.svg)](https://github.com/JonathanContrerasM/StrongInsight/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Local-first analysis of a [Strong](https://www.strong.app/) workout-tracker CSV export.
 Everything runs in the browser; nothing is uploaded and there is no backend.
+
+Drop your export onto the page and it becomes a queryable model of every set you have logged:
+progression and volume charts, a training calendar, exercise clustering that recovers your real
+training split from Strong's auto-generated workout names, a weakness engine that gates its
+findings for statistical significance rather than always finding something, and a comparison
+against a second person's export that refuses the comparisons which do not actually mean
+anything. Bodyweight work is resolved through a bodyweight history, so a weighted pull up reads
+as bodyweight plus the belt rather than as the belt alone.
+
+No backend, no account, no telemetry — there is not a single network call in `src/`.
 
 **Iteration 1** built the data foundation: CSV ingest, the bodyweight-aware load model, the
 exercise-metadata layer, and pure derive functions. **Iteration 2** adds the interactive charts,
@@ -648,3 +661,32 @@ Volume landmarks, body diagrams, DuckDB/SQL, any backend or sync. Linked brushin
 re-clustering on a brushed subset are deliberately deferred — the latter is unstable across brush
 positions and reads as a bug. Where a decision would constrain later work, the code carries a
 `// FUTURE:` comment rather than building ahead of scope.
+
+## Contributing
+
+Issues and pull requests are welcome.
+
+```bash
+npm install
+npm test         # 331 tests; the personal-export suites skip when the CSVs are absent
+npm run typecheck
+npm run build
+```
+
+CI runs exactly that sequence on every push and pull request, on a clean checkout — so a green
+badge means a fresh clone is green too.
+
+Two things worth knowing before changing anything:
+
+- **Never commit a real Strong export.** `fixtures/strong_workouts.csv` and
+  `fixtures/strong_weight.csv` are gitignored on purpose: an export is years of training history
+  with exact timestamps. The suites measured from them use `describe.skipIf`, so a clone reports
+  them as *skipped* rather than failing.
+- **`fixtures/sample_workouts.csv` is generated, not edited.** It comes from
+  `scripts/make-sample-fixture.mjs` with a fixed seed and is byte-reproducible. If the sample
+  needs to cover a new quirk, add it to the generator, regenerate, and list it in `SAMPLE_QUIRKS`
+  — `src/ingest/sample.test.ts` asserts every entry in that list is genuinely present.
+
+## License
+
+[MIT](LICENSE)
