@@ -44,3 +44,25 @@ export function tabEnabled(tab: Tab, hasData: boolean): boolean {
 
 /** Shown on a disabled tab, so the nav explains itself rather than going quiet. */
 export const DISABLED_HINT = 'Import a CSV first';
+
+// --- the URL hash ------------------------------------------------------------
+//
+// The app is one page with tab state, not a router, and that stays true. But the
+// landing page at `/` has to be able to send someone to a particular section --
+// `/app.html#compare` -- so the hash is read on mount and written on every tab
+// change. Two pure string functions here; the wiring is six lines in App.
+//
+// Note what this deliberately does NOT do: it does not bypass `tabEnabled`.
+// A link to `#compare` with nothing imported still falls through the same guard
+// a click would, and lands on Import.
+
+/** `'#compare'` -> `'compare'`. Anything unrecognised is `null`, never a throw. */
+export function tabFromHash(hash: string): Tab | null {
+  const id = hash.replace(/^#/, '');
+  return TABS.find((t) => t.id === id)?.id ?? null;
+}
+
+/** The inverse. Kept beside its partner so the two cannot drift. */
+export function hashForTab(tab: Tab): string {
+  return '#' + tab;
+}
