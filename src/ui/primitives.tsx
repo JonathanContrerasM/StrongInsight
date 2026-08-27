@@ -156,6 +156,38 @@ export function Button({
   );
 }
 
+/**
+ * The same skin as `Button`, on an anchor.
+ *
+ * Shares `BUTTON_VARIANT` rather than restating it: the landing page is mostly
+ * links that read as buttons, and a second copy of "solid lime is reserved for
+ * real actions" would be the first thing to drift. An `<a>` is used rather than
+ * a button with an onClick so that middle-click, ctrl-click and "copy link
+ * address" all behave.
+ */
+export function LinkButton({
+  variant = 'default',
+  size = 'md',
+  className = '',
+  ...rest
+}: {
+  variant?: ButtonVariant;
+  size?: 'sm' | 'md';
+} & React.AnchorHTMLAttributes<HTMLAnchorElement>) {
+  return (
+    <a
+      className={
+        'inline-flex items-center justify-center gap-1.5 rounded-md transition-colors ' +
+        (size === 'sm' ? 'px-2.5 py-1 text-xs font-medium ' : 'px-3 py-1.5 text-sm font-medium ') +
+        BUTTON_VARIANT[variant] +
+        ' ' +
+        className
+      }
+      {...rest}
+    />
+  );
+}
+
 const BADGE_TONE: Record<Tone, string> = {
   neutral: 'bg-sunken text-dim',
   warn: 'bg-warn-bg text-warn',

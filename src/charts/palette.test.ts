@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { CATEGORICAL, DIVERGING, SEQUENTIAL, sequential, diverging, categorical } from './colour';
 
@@ -18,7 +18,18 @@ import { CATEGORICAL, DIVERGING, SEQUENTIAL, sequential, diverging, categorical 
  */
 
 const CSS = readFileSync(fileURLToPath(new URL('../index.css', import.meta.url)), 'utf8');
-const HTML = readFileSync(fileURLToPath(new URL('../../index.html', import.meta.url)), 'utf8');
+/**
+ * EVERY html entry in the repo root, not just one.
+ *
+ * There are two of them now -- index.html (the landing) and app.html (the app)
+ * -- and both must inline the same pre-paint theme boot script. Reading the
+ * directory rather than naming a file means a third entry added later is
+ * covered without anyone remembering to come back here.
+ */
+const ROOT = fileURLToPath(new URL('../../', import.meta.url));
+const HTML_ENTRIES = readdirSync(ROOT)
+  .filter((f) => f.endsWith('.html'))
+  .map((f) => [f, readFileSync(ROOT + f, 'utf8')] as const);
 
 /** Pulls the `--x: #rrggbb;` declarations out of one top-level selector block. */
 function themeBlock(selector: string): Record<string, string> {
@@ -210,13 +221,26 @@ describe('ramp functions', () => {
 
 describe('boot script', () => {
   /**
-   * index.html hard-codes the canvas colour because it runs before any CSS
-   * exists. That duplication is unavoidable, so it gets a test instead.
+   * Each html entry hard-codes the canvas colour because the script runs before
+   * any CSS exists. That duplication is unavoidable, so it gets a test instead.
    */
-  it('mirrors the canvas colour of both themes', () => {
-    const m = HTML.match(/backgroundColor\s*=\s*dark\s*\?\s*'(#[0-9a-f]{6})'\s*:\s*'(#[0-9a-f]{6})'/);
-    expect(m, 'could not find the boot background assignment in index.html').not.toBeNull();
+  it('is present in every html entry', () => {
+    expect(HTML_ENTRIES.length, 'no .html entries found in the repo root').toBeGreaterThan(0);
+    for (const [name, html] of HTML_ENTRIES) {
+      expect(html, name + ' is missing the theme boot script').toContain('stronginsight:theme');
+    }
+  });
+
+  it.each(HTML_ENTRIES)('mirrors the canvas colour of both themes in %s', (name, html) => {
+    const m = html.match(/backgroundColor\s*=\s*dark\s*\?\s*'(#[0-9a-f]{6})'\s*:\s*'(#[0-9a-f]{6})'/);
+    expect(m, 'could not find the boot background assignment in ' + name).not.toBeNull();
     expect(m![1]).toBe(DARK['--c-canvas']);
     expect(m![2]).toBe(LIGHT['--c-canvas']);
+  });
+
+  /** The class must land on <html>; the chart tooltip portals outside the app root. */
+  it.each(HTML_ENTRIES)('stamps the class on documentElement in %s', (_name, html) => {
+    expect(html).toContain("el.classList.toggle('dark', dark)");
+    expect(html).toContain('var el = document.documentElement;');
   });
 });

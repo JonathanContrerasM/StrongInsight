@@ -71,30 +71,26 @@ export function Import() {
           </div>
         )}
 
-        <div className="mt-10 grid gap-3 sm:grid-cols-3">
-          <Step
-            n="01"
-            title="Export from Strong"
-            body="Settings, then Export Data. Strong emails you a CSV."
-          />
-          <Step
-            n="02"
-            title="Drop it above"
-            body="Parsed in-page. No upload, no account, no backend."
-          />
-          <Step
-            n="03"
-            title="Confirm the tags"
-            body="Exercise metadata starts as a guess. The tray shows what still needs you."
-          />
-        </div>
-
+        {/*
+          * The three-step walkthrough that used to sit here now lives on the
+          * landing page at `/`, along with everything else that explains the
+          * app. Two copies of that copy is one copy too many -- this view is the
+          * empty state, not the pitch.
+          */}
         <p className="mt-8 text-center text-xs text-faint">
           No export handy? The repository ships a synthetic one at{' '}
           <code className="num rounded bg-sunken px-1 py-0.5 text-ink">
             fixtures/sample_workouts.csv
           </code>
           .
+        </p>
+
+        <p className="mt-3 text-center text-xs text-faint">
+          New here?{' '}
+          <a className="text-dim underline underline-offset-2 hover:text-ink" href="/">
+            Read the overview
+          </a>{' '}
+          &mdash; what it does, and what it refuses to do.
         </p>
       </div>
     );
@@ -316,16 +312,6 @@ export function Import() {
 
 function tone(active: boolean, t: Tone): Tone {
   return active ? t : 'good';
-}
-
-function Step({ n, title, body }: { n: string; title: string; body: string }) {
-  return (
-    <div className="rounded-lg border border-line bg-surface p-4">
-      <div className="num text-xs font-semibold text-accent-ink">{n}</div>
-      <div className="mt-2 text-sm font-semibold text-ink">{title}</div>
-      <p className="mt-1 text-xs leading-relaxed text-dim">{body}</p>
-    </div>
-  );
 }
 
 function Disclosure({ summary, children }: { summary: string; children: ReactNode }) {

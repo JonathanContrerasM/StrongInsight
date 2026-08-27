@@ -8,15 +8,9 @@
     <meta name="theme-color" content="#08090b" media="(prefers-color-scheme: dark)" />
     <meta
       name="description"
-      content="StrongInsight reads a Strong workout-tracker CSV export and shows you the training it actually describes -- real volume with bodyweight counted, your split recovered from session co-occurrence, and weaknesses that have to pass a significance gate. Entirely in your browser."
+      content="Local-first analysis of a Strong workout-tracker CSV export. Nothing leaves your browser."
     />
-    <meta property="og:title" content="StrongInsight -- every set you have logged, read properly" />
-    <meta
-      property="og:description"
-      content="Local-first analysis of a Strong CSV export. No account, no backend, no upload."
-    />
-    <meta property="og:type" content="website" />
-    <title>StrongInsight -- every set you have logged, read properly</title>
+    <title>StrongInsight</title>
     <script>
       /*
        * Runs before first paint so a dark-mode reload never flashes white.
@@ -25,7 +19,7 @@
        * asynchronously arrives too late to prevent the flash.
        *
        * Keep the storage key in sync with STORAGE_KEY in src/ui/theme.ts, and
-       * keep this block byte-identical to the one in app.html -- there are two
+       * keep this block byte-identical to the one in index.html -- there are two
        * entries now, and `src/charts/palette.test.ts` asserts the hard-coded
        * colours below against --c-canvas in EVERY root .html file.
        */
@@ -58,6 +52,6 @@
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/landing.tsx"></script>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { WorkoutDataProvider, useWorkoutData } from './store/useWorkoutData';
 import { Import } from './views/Import';
 import { TaggingTray } from './views/TaggingTray';
@@ -9,26 +9,36 @@ import { Improvements } from './views/Improvements';
 import { Compare } from './views/Compare';
 import { ExerciseDetail } from './views/ExerciseDetail';
 import { ThemeControl } from './ui/ThemeControl';
+import { BrandMark, Wordmark } from './ui/BrandMark';
 import { Badge, Notice } from './ui/primitives';
-import { DISABLED_HINT, TABS, tabEnabled, type Tab } from './ui/tabs';
-
-/** Rising bars: the same mark as the favicon, so the tab and the page agree. */
-function BrandMark() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 32 32" aria-hidden className="shrink-0">
-      <rect x="6" y="19" width="4" height="7" rx="1" fill="var(--chart-seq-5)" />
-      <rect x="12" y="14" width="4" height="12" rx="1" fill="var(--chart-seq-6)" />
-      <rect x="18" y="9" width="4" height="17" rx="1" fill="var(--chart-seq-7)" />
-      <rect x="24" y="5" width="4" height="21" rx="1" fill="var(--c-accent)" />
-    </svg>
-  );
-}
+import { DISABLED_HINT, TABS, hashForTab, tabEnabled, tabFromHash, type Tab } from './ui/tabs';
 
 function Shell() {
   const data = useWorkoutData();
-  // Land on Import until there is something to look at.
-  const [tab, setTab] = useState<Tab>('dashboard');
+  /**
+   * Seeded from the URL hash so the landing page at `/` can link to a section:
+   * `/app.html#compare`. An absent or unrecognised hash keeps the old default.
+   * This is not a router -- there is still exactly one page and one piece of tab
+   * state -- it is just that the state now has an address.
+   */
+  const [tab, setTab] = useState<Tab>(() =>
+    typeof window === 'undefined' ? 'dashboard' : (tabFromHash(window.location.hash) ?? 'dashboard'),
+  );
   const [detail, setDetail] = useState<string | null>(null);
+
+  // Back and forward. Assigning a hash equal to the current one does not fire
+  // this, so `select` writing the hash it just navigated to cannot loop.
+  useEffect(() => {
+    const onHash = () => {
+      const next = tabFromHash(window.location.hash);
+      if (next) {
+        setTab(next);
+        setDetail(null);
+      }
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
 
   if (data.status === 'loading') {
     return (
@@ -47,13 +57,19 @@ function Shell() {
    */
   const activeTab: Tab = tabEnabled(tab, hasData) ? tab : 'import';
 
+  /** The single place the hash is written, so the URL can never disagree with the nav. */
+  const goTo = (id: Tab) => {
+    setTab(id);
+    if (typeof window !== 'undefined') window.location.hash = hashForTab(id);
+  };
+
   const openExercise = (name: string) => {
     setDetail(name);
-    setTab('exercises');
+    goTo('exercises');
   };
 
   const select = (id: Tab) => {
-    setTab(id);
+    goTo(id);
     setDetail(null);
   };
 
@@ -66,7 +82,7 @@ function Shell() {
           <div className="flex h-14 items-center gap-3">
             <div className="flex items-center gap-2.5">
               <BrandMark />
-              <span className="text-sm font-bold tracking-[0.14em] text-ink">STRONGINSIGHT</span>
+              <Wordmark />
             </div>
 
             <nav className="ml-4 hidden h-14 items-center gap-1 md:flex" aria-label="Sections">
@@ -180,7 +196,7 @@ function Shell() {
         )}
 
         {activeTab === 'dashboard' && (
-          <Dashboard onSelectExercise={openExercise} onGoToTray={() => setTab('tray')} />
+          <Dashboard onSelectExercise={openExercise} onGoToTray={() => select('tray')} />
         )}
         {activeTab === 'improvements' && <Improvements onSelectExercise={openExercise} />}
         {activeTab === 'compare' && <Compare />}
