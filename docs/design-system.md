@@ -115,26 +115,55 @@ entry added later is covered without anyone remembering to come back.
 
 ## The URL hash
 
-The app is still one page with tab state, not a router. But the landing has to be able to link at a
-section, so the tab state now has an address:
+The app is still one page with navigation state, not a router. But the landing has to be able to link
+at a section, and the browser Back button has to be able to retrace every step -- so that state has an
+address:
 
 ```ts
 // src/ui/tabs.ts
-export function tabFromHash(hash: string): Tab | null   // '#compare' -> 'compare'
-export function hashForTab(tab: Tab): string            // 'compare'  -> '#compare'
+export type Route = { tab: Tab; detail: string | null };
+export const DEFAULT_ROUTE: Route;                       // { tab: 'dashboard', detail: null }
+export function routeFromHash(hash: string): Route | null;
+export function hashForRoute(tab: Tab, detail?: string | null): string;
 ```
 
-`App` seeds its initial tab from `location.hash`, listens for `hashchange`, and writes the hash in
-one place (`goTo`) so the URL can never disagree with the nav. Assigning a hash equal to the current
-one does not fire `hashchange`, so that write cannot loop.
+```
+#compare                              -> { tab: 'compare',   detail: null }
+#exercises                            -> { tab: 'exercises', detail: null }
+#exercises/Bench%20Press%20(Barbell)  -> { tab: 'exercises', detail: 'Bench Press (Barbell)' }
+```
 
-Two properties worth keeping:
+`App` holds **one** piece of navigation state seeded from `location.hash`, listens for `hashchange`,
+and writes the hash in one place (`goTo`) so the URL can never disagree with the view. Assigning a
+hash equal to the current one does not fire `hashchange`, so that write cannot loop.
+
+**The rule that earns its keep: every view state reachable by clicking must be addressable.** Tabs
+alone were not enough, and the gap was a real bug. Tab and open lift were separate state, and only
+the tab was ever written to the hash -- so opening an exercise from the table pushed *no history
+entry*, and Back skipped the list entirely to land on whatever tab preceded it. Putting the lift in
+the hash fixes that and makes a lift bookmarkable and shareable as a side effect.
+
+Details that are load-bearing:
 
 - **It does not bypass `tabEnabled`.** `/app.html#compare` with nothing imported falls through the
   same guard a click does and lands on Import. The hash is deliberately left stale in that case, so
   a reload once data exists arrives where the link asked. A test pins that the two rules stay
   separate.
-- **An unrecognised hash returns `null`,** never a throw and never an arbitrary tab, so the caller
-  keeps its own default.
+- **An unrecognised hash returns `null`,** never a throw and never an arbitrary tab. The caller
+  substitutes `DEFAULT_ROUTE`, which is what makes Back to a bare `/app.html` show the same thing a
+  cold load of `/app.html` shows. Those two used to disagree: the mount defaulted to the dashboard
+  while the `hashchange` handler ignored an unrecognised hash and froze the view.
+- **The name is percent-encoded, and the route splits on the first `/` only.** Encoding turns any
+  slash inside a name into `%2F`, so the split cannot be ambiguous. Exercise names are whatever the
+  user typed into Strong -- the reference corpus carries `deadhang`, `katana` and one name with a
+  trailing space -- so nothing about them can be assumed.
+- **`decodeURIComponent` throws on a mangled escape** like `%zz`. That is caught and returns `null`,
+  so a hand-edited URL degrades instead of taking the app down on mount.
+- **A detail segment is refused on any tab but `exercises`**, rather than being silently ignored.
+- **The in-app back link pops, it does not push.** `history.back()`, guarded by a ref recording
+  whether this session pushed an entry of its own -- someone who landed straight on
+  `#exercises/Bench Press` from a bookmark or a reload has nothing of ours behind them, so they get a
+  push instead of being ejected from the app. Pushing unconditionally would make browser Back appear
+  to go *forward*, back onto the lift just left.
 
-Back and forward now work in the app, which came free.
+Back and forward now work throughout the app.

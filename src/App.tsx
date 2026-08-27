@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { WorkoutDataProvider, useWorkoutData } from './store/useWorkoutData';
 import { Import } from './views/Import';
 import { TaggingTray } from './views/TaggingTray';
@@ -11,31 +11,44 @@ import { ExerciseDetail } from './views/ExerciseDetail';
 import { ThemeControl } from './ui/ThemeControl';
 import { BrandMark, Wordmark } from './ui/BrandMark';
 import { Badge, Notice } from './ui/primitives';
-import { DISABLED_HINT, TABS, hashForTab, tabEnabled, tabFromHash, type Tab } from './ui/tabs';
+import {
+  DEFAULT_ROUTE,
+  DISABLED_HINT,
+  TABS,
+  hashForRoute,
+  routeFromHash,
+  tabEnabled,
+  type Route,
+  type Tab,
+} from './ui/tabs';
 
 function Shell() {
   const data = useWorkoutData();
   /**
-   * Seeded from the URL hash so the landing page at `/` can link to a section:
-   * `/app.html#compare`. An absent or unrecognised hash keeps the old default.
-   * This is not a router -- there is still exactly one page and one piece of tab
-   * state -- it is just that the state now has an address.
+   * ONE piece of navigation state, seeded from the URL hash. Tab and open lift
+   * used to be separate, and the lift was never written to the hash -- so
+   * opening one created no history entry and Back skipped the Exercises list.
+   *
+   * This is still not a router. There is one page and one piece of state; the
+   * state just has an address now.
    */
-  const [tab, setTab] = useState<Tab>(() =>
-    typeof window === 'undefined' ? 'dashboard' : (tabFromHash(window.location.hash) ?? 'dashboard'),
+  const [route, setRoute] = useState<Route>(() =>
+    typeof window === 'undefined' ? DEFAULT_ROUTE : (routeFromHash(window.location.hash) ?? DEFAULT_ROUTE),
   );
-  const [detail, setDetail] = useState<string | null>(null);
 
-  // Back and forward. Assigning a hash equal to the current one does not fire
-  // this, so `select` writing the hash it just navigated to cannot loop.
+  /**
+   * True once this session has pushed a history entry of its own, which is what
+   * makes `history.back()` safe for the in-app back link. Someone who landed
+   * straight on `#exercises/Bench Press` -- a bookmark, a reload, a link -- has
+   * nothing of ours behind them, so popping would eject them from the app.
+   */
+  const hasPushed = useRef(false);
+
+  // Back and forward. Note the absent `if (next)`: an unrecognised or absent
+  // hash resolves to DEFAULT_ROUTE rather than being ignored, so Back to a bare
+  // /app.html shows what a cold load of /app.html shows instead of freezing.
   useEffect(() => {
-    const onHash = () => {
-      const next = tabFromHash(window.location.hash);
-      if (next) {
-        setTab(next);
-        setDetail(null);
-      }
-    };
+    const onHash = () => setRoute(routeFromHash(window.location.hash) ?? DEFAULT_ROUTE);
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
@@ -55,22 +68,35 @@ function Shell() {
    * below, so this cannot be reached by clicking -- it catches `hasData` going
    * false underneath a live tab, which is what "Reset everything" does.
    */
-  const activeTab: Tab = tabEnabled(tab, hasData) ? tab : 'import';
+  const activeTab: Tab = tabEnabled(route.tab, hasData) ? route.tab : 'import';
 
-  /** The single place the hash is written, so the URL can never disagree with the nav. */
-  const goTo = (id: Tab) => {
-    setTab(id);
-    if (typeof window !== 'undefined') window.location.hash = hashForTab(id);
+  /**
+   * The single place the hash is written, so the URL can never disagree with the
+   * nav. Assigning a hash equal to the current one fires no `hashchange`, which
+   * is what stops this looping -- and the same comparison records whether we
+   * actually pushed an entry.
+   */
+  const goTo = (tab: Tab, detail: string | null = null) => {
+    setRoute({ tab, detail });
+    if (typeof window === 'undefined') return;
+    const next = hashForRoute(tab, detail);
+    if (window.location.hash !== next) {
+      hasPushed.current = true;
+      window.location.hash = next;
+    }
   };
 
-  const openExercise = (name: string) => {
-    setDetail(name);
-    goTo('exercises');
-  };
+  const openExercise = (name: string) => goTo('exercises', name);
+  const select = (id: Tab) => goTo(id);
 
-  const select = (id: Tab) => {
-    goTo(id);
-    setDetail(null);
+  /**
+   * The in-app back link pops rather than pushes, so it undoes the step that
+   * opened the lift instead of adding another -- otherwise browser Back would
+   * appear to go forward, back onto the lift you just left.
+   */
+  const backToList = () => {
+    if (hasPushed.current && typeof window !== 'undefined') window.history.back();
+    else goTo('exercises');
   };
 
   const trayCount = data.unconfirmedCount;
@@ -201,14 +227,14 @@ function Shell() {
         {activeTab === 'improvements' && <Improvements onSelectExercise={openExercise} />}
         {activeTab === 'compare' && <Compare />}
         {activeTab === 'exercises' &&
-          (detail ? (
+          (route.detail ? (
             <ExerciseDetail
-              name={detail}
-              onBack={() => setDetail(null)}
-              onSelectExercise={setDetail}
+              name={route.detail}
+              onBack={backToList}
+              onSelectExercise={(n) => goTo('exercises', n)}
             />
           ) : (
-            <ExerciseList onSelectExercise={setDetail} />
+            <ExerciseList onSelectExercise={(n) => goTo('exercises', n)} />
           ))}
         {activeTab === 'tray' && <TaggingTray />}
         {activeTab === 'import' && <Import />}
