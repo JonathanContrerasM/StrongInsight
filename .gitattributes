@@ -6,3 +6,8 @@
 # them, or the fixture arrives LF-only on Linux/macOS and those tests fail on
 # every platform except the one it was committed from.
 *.csv -text
+
+# Screenshots are binary. `text=auto` above already detects that, but this
+# repository has been bitten by EOL normalisation before (see the CSV rule), and
+# a mangled PNG fails silently rather than loudly.
+*.png -text
