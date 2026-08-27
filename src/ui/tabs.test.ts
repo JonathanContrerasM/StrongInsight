@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TABS, tabEnabled, type Tab } from './tabs';
+import { TABS, hashForTab, tabEnabled, tabFromHash, type Tab } from './tabs';
 
 /**
  * The empty app used to navigate three different ways at once: Dashboard,
@@ -43,5 +43,38 @@ describe('tabEnabled', () => {
 
   it('agrees with the needsData flag it is derived from', () => {
     for (const t of TABS) expect(tabEnabled(t.id, false)).toBe(!t.needsData);
+  });
+});
+
+/**
+ * The hash is the landing page's only way into a specific section, so an
+ * unrecognised one must degrade to the caller's default rather than throwing or
+ * resolving to something arbitrary.
+ */
+describe('tabFromHash', () => {
+  it('resolves every tab in the table', () => {
+    for (const t of TABS) expect(tabFromHash('#' + t.id)).toBe(t.id);
+  });
+
+  it('tolerates a missing leading hash', () => {
+    expect(tabFromHash('compare')).toBe('compare');
+  });
+
+  it('returns null for anything it does not recognise', () => {
+    for (const h of ['', '#', '#nonsense', '#Dashboard', '#import ', '#tray/detail']) {
+      expect(tabFromHash(h), JSON.stringify(h) + ' should not resolve').toBeNull();
+    }
+  });
+
+  it('round-trips through hashForTab', () => {
+    for (const t of TABS) expect(tabFromHash(hashForTab(t.id))).toBe(t.id);
+  });
+
+  it('does not bypass the data gate', () => {
+    // A link to a locked tab resolves to that tab; `tabEnabled` is what refuses
+    // it, exactly as it refuses a click. The two rules stay separate.
+    const locked = tabFromHash('#compare') as Tab;
+    expect(locked).toBe('compare');
+    expect(tabEnabled(locked, false)).toBe(false);
   });
 });
