@@ -60,11 +60,33 @@ idb:
   meta:exercises  -> Record<string, ExerciseMeta>
   meta:bodyweight -> { date, kg }[]
   settings        -> { inputUnit, displayUnit, weekStartsOn, defaultBodyweightKg }
+  compare:person  -> { label, scale, bodyweight: { date, kg }[], import: RawImport | null }
 ```
 
 Parsing 6.5k rows takes a few milliseconds, so caching the result is not worth it. The payoff is
 that **improving the parser reprocesses existing data with no re-export**, and archived imports
 allow rollback if a rename mangles history.
+
+`compare:person` is the other person on the Compare tab, and it is the one key that holds data
+about somebody who is not the user. It is written from `store/comparePerson.ts` rather than from
+the provider: only Compare cares about them, and threading them through `useWorkoutData` would put
+another person's export in every consumer's context. Three details follow from that:
+
+- **Hydration is pushed in, not pulled.** `loadAll()` reads the key and `WorkoutDataProvider`'s
+  existing hydration effect hands the record to the store, so there is one IndexedDB connection and
+  one round trip whether or not the tab is ever opened. `hydrateComparePerson` refuses to overwrite
+  a record that is already there, because StrictMode double-invokes that effect.
+- **Writes are debounced** (~400 ms) and go through `saveComparePerson`, which serialises them with
+  the same `withLock` every other key uses. The name and the bodyweight cells are typed a keystroke
+  at a time. *Forget* cancels the pending write before deleting, or a save scheduled a keystroke
+  ago lands after the delete and resurrects them.
+- **`reset()` clears the module store as well as the key.** `resetAll()` deletes from disk, but the
+  module variable would keep serving its in-memory copy until a reload.
+
+The reader (`readComparePerson`) degrades in tiers rather than all at once: a corrupt export leaves
+them named with their bodyweight intact, and a corrupt weight row is dropped on its own. Their
+*metadata* is still never persisted — it is rebuilt in the view on every mount and thrown away with
+the tab, because their exercise vocabulary is not yours to curate.
 
 The unit is recorded **per import** rather than globally. Strong rewrites its entire history when
 its unit setting changes, so any one export is internally consistent — but an archived export may

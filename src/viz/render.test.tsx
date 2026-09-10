@@ -25,6 +25,8 @@ import {
 } from './TimeSeries';
 import { RepHistogram, SetPositionChart } from './Distributions';
 import { Sparkline, WeekdayBars } from './Insights';
+import { PairedMuscleShare, PairedProgression, PairedRepBars, RatioBars } from './Pairs';
+import { compareCorpora, type Comparison } from '../derive/compare';
 import { CsvDropzone } from '../ui/CsvDropzone';
 import { findings } from '../derive/insights';
 import type { ExerciseMeta } from '../model/types';
@@ -126,6 +128,21 @@ const sets = enrichSets(parsed.sets, buildMetaIndex(meta), makeBodyweightResolve
 
 const EMPTY: EnrichedSet[] = [];
 
+/**
+ * A comparison against a corpus split in half. Not two people -- there is only
+ * one fixture -- but it is the friendliest possible case, which is exactly what
+ * the compare charts need to mount against something non-degenerate.
+ */
+const mid = Math.floor(sets.length / 2);
+const comparison: Comparison = compareCorpora(
+  { label: 'You', sets: sets.slice(0, mid), meta: lookup, bodyweightKg: 80 },
+  { label: 'Alex', sets: sets.slice(mid), meta: lookup, bodyweightKg: 74 },
+);
+const emptyComparison: Comparison = compareCorpora(
+  { label: 'You', sets: EMPTY, meta: lookup, bodyweightKg: null },
+  { label: 'Alex', sets: EMPTY, meta: lookup, bodyweightKg: null },
+);
+
 describe('charts mount on the sample corpus', () => {
   it('training calendar', () => {
     const el = render(<TrainingCalendar days={calendarDays(sets)} unit="kg" />);
@@ -157,6 +174,40 @@ describe('charts mount on the sample corpus', () => {
   it('balance chart', () => {
     const b = balanceSeries(sets, lookup, { granularity: 'month' });
     expect(render(<BalanceChart points={b} metric="pullPushLog2" labels={['pull', 'push']} />).querySelectorAll('svg').length).toBe(1);
+  });
+
+  /**
+   * `invert` must move bars across the zero line, not merely relabel them --
+   * which is exactly the mistake it exists to prevent. Same data, same scale, so
+   * every bar that was above must end up below and vice versa.
+   */
+  it('balance chart mirrors about the zero line when inverted', () => {
+    const b = balanceSeries(sets, lookup, { granularity: 'month' });
+
+    const tops = (invert: boolean) => {
+      const el = render(
+        <BalanceChart
+          points={b}
+          metric="lowerUpperLog2"
+          labels={invert ? ['upper', 'lower'] : ['lower', 'upper']}
+          invert={invert}
+        />,
+      );
+      // The zero rule is the only <line>; bars are the <rect>s after the band.
+      const zero = Number(el.querySelector('line')?.getAttribute('y1'));
+      return [...el.querySelectorAll('rect')]
+        .map((r) => Number(r.getAttribute('y')))
+        .filter((y) => Number.isFinite(y))
+        .map((y) => y < zero);
+    };
+
+    const plain = tops(false);
+    const flipped = tops(true);
+    expect(plain.length).toBeGreaterThan(1);
+    expect(flipped.length).toBe(plain.length);
+    // At least one bar actually changed sides -- a corpus balanced to the
+    // millimetre would make this vacuous.
+    expect(plain.some((above, i) => above !== flipped[i])).toBe(true);
   });
 
   it('rep histogram', () => {
@@ -196,6 +247,47 @@ describe('charts mount on the sample corpus', () => {
 });
 
 // --- degenerate inputs --------------------------------------------------------
+
+describe('compare charts mount for two corpora', () => {
+  it('paired rep bars', () => {
+    const el = render(<PairedRepBars you={comparison.you} them={comparison.them} />);
+    expect(el.querySelectorAll('rect').length).toBeGreaterThan(4);
+  });
+
+  it('paired muscle share', () => {
+    const el = render(<PairedMuscleShare you={comparison.you} them={comparison.them} />);
+    expect(el.querySelectorAll('li').length).toBeGreaterThan(0);
+  });
+
+  it('ratio bars', () => {
+    const el = render(
+      <RatioBars lifts={comparison.lifts} scale="absolute" youLabel="You" themLabel="Alex" unit="kg" />,
+    );
+    expect(el.querySelectorAll('svg').length).toBeGreaterThan(0);
+  });
+
+  it('paired progression, both alignments', () => {
+    const lift = comparison.lifts.find((l) => l.series.you.length > 2 && l.series.them.length > 2);
+    // The synthetic fixture is small; if the split leaves no lift with history
+    // on both halves there is nothing to assert, and that is not a failure.
+    if (!lift) return;
+    for (const align of ['elapsed', 'calendar'] as const) {
+      const el = render(
+        <PairedProgression lift={lift} youLabel="You" themLabel="Alex" unit="kg" align={align} />,
+      );
+      expect(el.querySelectorAll('path').length).toBeGreaterThan(0);
+    }
+  });
+
+  /** Two people who share nothing is a real state, not an error state. */
+  it('survive a comparison with nothing in it', () => {
+    render(<PairedRepBars you={emptyComparison.you} them={emptyComparison.them} />);
+    render(<PairedMuscleShare you={emptyComparison.you} them={emptyComparison.them} />);
+    render(
+      <RatioBars lifts={[]} scale="relative" youLabel="You" themLabel="Alex" unit="kg" />,
+    );
+  });
+});
 
 describe('insight charts', () => {
   const rates = [

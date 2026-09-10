@@ -67,7 +67,7 @@ rather than folded into an average.
 | **Dashboard** | Volume, sessions, sets and consistency; a training calendar with three states rather than two; the recovered split; volume over time stacked by muscle or pattern; balance plotted as log2 of the ratio; a muscle heatmap that defaults to row-relative. |
 | **Improvements** | Ranked findings across consistency, progression, and neglect and balance — each with its z-score, each gated. Three counters in the open: patterns tested, suppressed as too weak, and tested-and-fine. |
 | **Exercises** | Every lift in a sortable table, and behind any row the full history: estimated 1RM, per-session heaviest load and volume as two facets, a load/rep density map, and the set-position profile. |
-| **Compare** | A second person's export, compared as rates rather than totals, with an explicit list of what was excluded and why. Never persisted. |
+| **Compare** | A second person's export and bodyweight history, compared as rates rather than totals, with an explicit list of what was excluded and why. Stored on your device, removable in one click. |
 | **Tagging tray** | The queue of exercises whose metadata is still a guess, highest set count first. Anything unconfirmed renders with a visible `unverified` marker wherever it appears. |
 | **Import** | An ingest report rather than a spinner: row counts, the W/D split, every unrecognised token with its verbatim value and file line, and the traps found in your own data. |
 | **Settings** | Units, week start, bodyweight entries and measurements import, theme, metadata export/import, archive rollback, reset. |
@@ -97,8 +97,10 @@ data. The app is built so that uploading it is not something it *can* do:
   on a fetch, a request object, a beacon, a socket or a remote import.
 - **Your export stays in your browser.** The raw CSV is kept in IndexedDB on your own device so it
   survives a reload. Clearing site data removes it.
-- **A second person's export is never persisted at all** — it lives in a module variable, so a
-  reload clears it with no code required.
+- **A second person's data is stored the same way yours is** — their export, name and bodyweight
+  history go into the same IndexedDB on the same device, so the Compare tab is still there after a
+  reload. It is another person's training history, so it is worth being explicit: it is never
+  uploaded, *Forget* on the Compare tab deletes it, and so does *Reset everything*.
 - **Reset everything means everything.** One button in Settings drops every stored key.
 
 **Never commit a real Strong export.** `fixtures/strong_workouts.csv` and

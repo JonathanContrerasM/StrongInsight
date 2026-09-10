@@ -235,14 +235,27 @@ of volume by muscle, rep ranges — needs no normalisation between two people an
 rates, never totals. So is "what they train and you don't", which is the one output that needs no
 matching, no units, and no bodyweight.
 
-The second corpus is **never persisted**: it is somebody else's training history, so there is no
-IndexedDB key and no `sessionStorage`. It does survive moving between tabs, because App unmounts
-each view on navigation and losing the file every time you glanced at the dashboard was
-untenable — so it lives in a module-level store (`store/compareCorpus.ts`, the same shape as
-`ui/theme.ts`) rather than component state. Being a plain module variable is what makes a reload
-clear it, with no code required. The store holds **raw inputs only**, down to the bodyweight
-field being kept as the typed string rather than a parsed number: a controlled number input bound
-to a parsed value eats the decimal point while you are still typing `78.5`.
+The second person lives in a module-level store (`store/comparePerson.ts`, the same shape as
+`ui/theme.ts`) rather than component state, because App unmounts each view on navigation and
+losing the file every time you glanced at the dashboard was untenable. That store **is
+persisted**, to one IndexedDB key, `compare:person`, holding their name, their export and their
+bodyweight history.
+
+That is a deliberate reversal of what this used to do, and it deserves stating rather than
+burying. The earlier design kept them in a plain module variable so a reload wiped them, on the
+argument that somebody else's training history has no business in your database. What that
+actually bought was a tab you used once: every visit meant re-dropping the CSV and re-typing a
+whole bodyweight history. The record is now written, and the guarantees that remain are the ones
+that were doing the real work — it never leaves the device (`src/network.test.ts` still fails the
+build on a single network call anywhere in `src/`), *Forget* on the tab deletes the key, and so
+does *Reset everything*. The tab says so where the file is dropped.
+
+Their bodyweight is a full dated history rather than the single number it used to be, resolved
+through the same `makeBodyweightResolver` yours uses, so their pull ups are computed against what
+they weighed that month instead of one flat figure — the two sides of the comparison are now
+computed the same way. Their export carries the `unit` it was read under, stamped at drop time:
+without that, changing your own input-unit setting would silently reinterpret their entire stored
+history at 2.2x on the next reload.
 
 It also gets its own metadata map rather than the store's — partly so their exercises stay out of
 your tag table and tagging tray, and partly for correctness, since the store's lazy resolver
