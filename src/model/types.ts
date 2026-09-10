@@ -161,3 +161,28 @@ export type RawImport = {
    */
   unit: WeightUnit;
 };
+
+/** Absolute kilograms, or divided by each lifter's own bodyweight. */
+export type CompareScale = 'absolute' | 'relative';
+
+/**
+ * The other person on the Compare tab.
+ *
+ * Persisted, which is a reversal: this used to be a module variable that died on
+ * reload, on the argument that another person's training history has no business
+ * in your database. It is stored now because re-dropping the file and re-typing a
+ * bodyweight history on every visit made the tab unusable. Nothing leaves the
+ * device -- there is not a network call in src/ -- and both Remove and Reset
+ * everything delete the record.
+ *
+ * `import` is null while they have a name and a bodyweight but no export yet;
+ * the whole record is null when there is no second person at all.
+ */
+export type ComparePerson = {
+  label: string;
+  scale: CompareScale;
+  /** Same shape as your own history, so it resolves through makeBodyweightResolver. */
+  bodyweight: BodyweightEntry[];
+  /** Reuses RawImport for the `unit` stamp -- see the comment on that type. */
+  import: RawImport | null;
+};

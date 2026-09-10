@@ -1,20 +1,28 @@
 import { useMemo, useState } from 'react';
 import { useWorkoutData } from '../store/useWorkoutData';
 import {
-  clearCompareCorpus,
-  loadCompareCorpus,
-  patchCompareCorpus,
-  useCompareCorpus,
-  type CompareScale,
-} from '../store/compareCorpus';
-import { parseCsv } from '../ingest/parseCsv';
+  clearCompareImport,
+  clearComparePerson,
+  getComparePerson,
+  patchComparePerson,
+  setCompareImport,
+  useComparePerson,
+} from '../store/comparePerson';
+import { parseCsv, type ParseResult } from '../ingest/parseCsv';
+import { emptyReport } from '../ingest/report';
 import { buildMetaIndex } from '../meta/metaIndex';
 import { guessMeta } from '../meta/guessMeta';
 import { seedFor } from '../meta/seedMeta';
 import { enrichSets } from '../model/effectiveLoad';
 import { makeBodyweightResolver } from '../model/bodyweight';
 import { compareCorpora, type Comparison, type Corpus, type Excluded } from '../derive/compare';
-import type { ExerciseMeta } from '../model/types';
+import {
+  comparisonToMarkdown,
+  sharedLiftsToCsv,
+  EXCLUDED_COPY,
+  EXCLUDED_TITLE,
+} from '../derive/compareReport';
+import type { CompareScale, ExerciseMeta, WeightUnit } from '../model/types';
 import { formatVolume, formatWeight } from '../format';
 import {
   Badge,
@@ -25,9 +33,20 @@ import {
   Input,
   Notice,
   SectionLabel,
+  Select,
   Tile,
 } from '../ui/primitives';
+import {
+  PairedMuscleShare,
+  PairedProgression,
+  PairedRepBars,
+  RatioBars,
+  type ProgressionAlign,
+} from '../viz/Pairs';
+import { ChartCard } from '../charts/parts';
 import { CsvDropzone } from '../ui/CsvDropzone';
+import { downloadText, slugify } from '../ui/download';
+import { BodyweightEditor } from './BodyweightEditor';
 import { Toggle } from '../charts/parts';
 
 /**
@@ -40,69 +59,102 @@ import { Toggle } from '../charts/parts';
  * free-weight lifts -- 19 of 63 shared exercises on the reference data -- plus
  * everything about training SHAPE, which needs no normalisation at all.
  *
- * The second corpus lives in a module-level store rather than component state,
- * so it survives leaving the tab and coming back -- App unmounts the view on
- * every tab switch. It is still never persisted: it is somebody else's training
- * history, and a plain module variable means a reload clears it.
+ * The second person lives in `store/comparePerson`, which persists them: their
+ * export, their name and their bodyweight history come back after a reload. That
+ * store's header explains the tradeoff. What is NOT persisted is their exercise
+ * metadata -- built fresh below and thrown away with the tab, because their
+ * vocabulary is not yours to curate.
+ *
+ * Their bodyweight is a full history rather than a single number, so their pull
+ * ups resolve against what they weighed that month, exactly as yours do.
  */
+
+const EMPTY_PARSE: ParseResult = { workouts: [], sets: [], report: emptyReport('', 0) };
 
 export function Compare() {
   const data = useWorkoutData();
-  const their = useCompareCorpus();
-  const [error, setError] = useState<string | null>(null);
+  const their = useComparePerson();
+  const [dropError, setDropError] = useState<string | null>(null);
+  /** Set when a new file landed on an existing person -- see the strip below. */
+  const [kept, setKept] = useState<{ label: string; entries: number } | null>(null);
 
-  const label = their?.label ?? 'Them';
-  const kgInput = their?.bodyweightInput ?? '';
+  const label = their?.label ?? '';
+  const them = label.trim() === '' ? 'Them' : label.trim();
+  /**
+   * Keyed off `label`, not `them`: with no name at all `them` is "Them", and
+   * "Remove Them's CSV" is worse than the neutral wording. Matches the `whose`
+   * the bodyweight editor computes directly below these buttons.
+   */
+  const theirs = label.trim() === '' ? 'their' : them + '’s';
   const scale: CompareScale = their?.scale ?? 'absolute';
-
   const unit = data.settings.displayUnit;
 
   const readFile = async (file: File) => {
-    setError(null);
+    setDropError(null);
+    setKept(null);
     try {
       const text = await file.text();
-      // Parse eagerly so a bad file is rejected here rather than blanking the tab.
+      // Parse eagerly so a bad file is rejected here rather than blanking the
+      // tab -- and rather than being written to disk.
       parseCsv(text, { filename: file.name, unit: data.settings.inputUnit });
-      loadCompareCorpus({
-        filename: file.name,
+
+      const before = getComparePerson();
+      setCompareImport({
         text,
-        label: 'Them',
-        bodyweightInput: '',
-        scale: 'absolute',
+        filename: file.name,
+        importedAt: Date.now(),
+        // Stamped at drop time, exactly as your own imports are. Your input-unit
+        // setting can change after this file is stored; reinterpreting their
+        // whole history at 2.2x on a later reload would be silent and total.
+        unit: data.settings.inputUnit,
       });
+      if (before && (before.label.trim() !== '' || before.bodyweight.length > 0)) {
+        setKept({ label: before.label, entries: before.bodyweight.length });
+      }
     } catch (err) {
-      clearCompareCorpus();
-      setError(err instanceof Error ? err.message : String(err));
+      setDropError(err instanceof Error ? err.message : String(err));
     }
   };
 
   /**
-   * A GUESSED bodyweight is not a known one. With no entries recorded the
-   * resolver hands back the configured default, which is fine for computing your
-   * own history but would silently put a made-up number on both sides of a
-   * comparison with another person. `isFallback` is the difference.
+   * M1 -- parse. Depends on their stored text and the unit it was stamped with,
+   * never on the current setting.
+   *
+   * It must not throw. A file validated at drop time is not a validated file
+   * three parser releases later, and now that it survives a reload, a throw here
+   * would white-screen the tab on data the user cannot even see to delete.
    */
-  const yourKg = data.bodyweightAt.isFallback ? null : data.bodyweightAt(new Date());
+  const theirParse = useMemo((): { result: ParseResult; error: string | null } => {
+    const f = their?.import;
+    if (!f) return { result: EMPTY_PARSE, error: null };
+    try {
+      return {
+        result: parseCsv(f.text, { filename: f.filename, unit: f.unit }),
+        error: null,
+      };
+    } catch (err) {
+      return { result: EMPTY_PARSE, error: err instanceof Error ? err.message : String(err) };
+    }
+  }, [their?.import]);
 
-  const comparison = useMemo((): Comparison | null => {
-    if (data.current === null || their === null) return null;
-
-    const parsed = parseCsv(their.text, { unit: data.settings.inputUnit });
-
-    /**
-     * Corpus B gets its OWN metadata, for two reasons.
-     *
-     * Correctness: handing it the store's `metaIndex` would send their unknown
-     * exercise names down the lazy path, which calls `guessMeta` with no
-     * observed-weights hint, so a bodyweight-only movement resolves to `external`
-     * and computes to zero load.
-     *
-     * And ownership: another person's exercises have no business in your
-     * persisted tag table or your tagging tray. Their vocabulary is not yours to
-     * curate, so this map is built here and thrown away with the tab.
-     */
-    const observed = new Map<string, { anyNonZero: boolean; anySeconds: boolean; anyDistance: boolean }>();
-    for (const s of parsed.sets) {
+  /**
+   * M2 -- their metadata. Corpus B gets its OWN, for two reasons.
+   *
+   * Correctness: handing it the store's `metaIndex` would send their unknown
+   * exercise names down the lazy path, which calls `guessMeta` with no
+   * observed-weights hint, so a bodyweight-only movement resolves to `external`
+   * and computes to zero load.
+   *
+   * And ownership: another person's exercises have no business in your persisted
+   * tag table or your tagging tray. This map is built here and thrown away with
+   * the tab -- it is the one thing about them that is still never stored.
+   */
+  const theirMeta = useMemo((): Record<string, ExerciseMeta> => {
+    const observed = new Map<
+      string,
+      { anyNonZero: boolean; anySeconds: boolean; anyDistance: boolean }
+    >();
+    for (const s of theirParse.result.sets) {
       const o = observed.get(s.exerciseName) ?? {
         anyNonZero: false,
         anySeconds: false,
@@ -113,26 +165,41 @@ export function Compare() {
       if ((s.distanceRaw ?? 0) > 0) o.anyDistance = true;
       observed.set(s.exerciseName, o);
     }
-    const theirMeta: Record<string, ExerciseMeta> = {};
+    const out: Record<string, ExerciseMeta> = {};
     for (const [name, o] of observed) {
-      theirMeta[name] = seedFor(name) ?? guessMeta(name, { observedWeights: o });
+      out[name] = seedFor(name) ?? guessMeta(name, { observedWeights: o });
     }
+    return out;
+  }, [theirParse.result.sets]);
 
-    const kg = Number(kgInput.replace(',', '.'));
-    const bodyweightKg = Number.isFinite(kg) && kg > 0 ? kg : null;
+  /**
+   * A GUESSED bodyweight is not a known one. With no entries recorded your
+   * resolver hands back the configured default, which is fine for computing your
+   * own history but would silently put a made-up number on both sides of a
+   * comparison with another person. `isFallback` is the difference.
+   */
+  const yourKg = data.bodyweightAt.isFallback ? null : data.bodyweightAt(new Date());
+
+  /** Theirs has no fallback at all: unknown stays unknown, by construction. */
+  const theirAt = useMemo(
+    () => makeBodyweightResolver(their?.bodyweight ?? [], null),
+    [their?.bodyweight],
+  );
+  const themKg = theirAt.isFallback ? null : theirAt(new Date());
+
+  const theirSpan = theirParse.result.report.dateRange;
+
+  const comparison = useMemo((): Comparison | null => {
+    if (data.current === null || their?.import == null) return null;
 
     const theirCorpus: Corpus = {
-      label: label.trim() || 'Them',
+      label: them,
       // Note: set and workout ids are content hashes of date + name, so two
       // people who trained the same evening collide. The two arrays are never
       // pooled or keyed together, which is what keeps that harmless.
-      sets: enrichSets(
-        parsed.sets,
-        buildMetaIndex(theirMeta),
-        makeBodyweightResolver([], bodyweightKg),
-      ),
+      sets: enrichSets(theirParse.result.sets, buildMetaIndex(theirMeta), theirAt),
       meta: (n: string) => theirMeta[n],
-      bodyweightKg,
+      bodyweightKg: themKg,
     };
 
     const yourCorpus: Corpus = {
@@ -143,7 +210,18 @@ export function Compare() {
     };
 
     return compareCorpora(yourCorpus, theirCorpus);
-  }, [data.current, data.sets, data.meta, data.settings.inputUnit, their, kgInput, label, yourKg]);
+  }, [
+    data.current,
+    data.sets,
+    data.meta,
+    their?.import,
+    theirParse.result.sets,
+    theirMeta,
+    theirAt,
+    themKg,
+    them,
+    yourKg,
+  ]);
 
   if (data.current === null) {
     return (
@@ -153,6 +231,9 @@ export function Compare() {
     );
   }
 
+  const unitMismatch =
+    their?.import != null && their.import.unit !== data.settings.inputUnit;
+
   return (
     <div className="space-y-8">
       <section className="space-y-3">
@@ -160,67 +241,133 @@ export function Compare() {
         <CsvDropzone
           onFile={(f) => void readFile(f)}
           compact
-          title={their ? their.filename : "Drop the other person's Strong CSV here"}
+          title={their?.import ? their.import.filename : "Drop the other person's Strong CSV here"}
           subtitle={
-            their
-              ? 'Stays loaded while you move around the app. Drop another file to replace it.'
-              : 'or click to choose a file · never saved, and gone when you reload the page'
+            their?.import
+              ? 'Saved on this device, so it is still here next time. Drop another file to replace it.'
+              : 'or click to choose a file · stored in this browser only, never uploaded'
           }
         />
 
-        {error && (
+        {dropError && (
           <Notice tone="danger" title="Could not read that file">
-            {error}
+            {dropError}
           </Notice>
         )}
 
-        {their && (
-          <Card>
-            <div className="flex flex-wrap items-end gap-4">
-              <Field label="Their name" className="w-44">
-                <Input
-                  value={label}
-                  onChange={(e) => patchCompareCorpus({ label: e.target.value })}
-                  placeholder="Them"
-                />
-              </Field>
-              {/* No `hint` here: it would render below the input and make this
-                  field taller than the one beside it, which `items-end` then
-                  resolves by pushing this input up. The explanation lives under
-                  the whole row instead. */}
-              <Field label="Their bodyweight (kg)" className="w-44">
-                <Input
-                  type="number"
-                  step="0.1"
-                  value={kgInput}
-                  onChange={(e) => patchCompareCorpus({ bodyweightInput: e.target.value })}
-                  placeholder="e.g. 78"
-                />
-              </Field>
-              {/* A plain div, not a Field: Field renders a <label>, and a
-                  <label> cannot be meaningfully bound to a <button>. The caption
-                  is therefore decorative, which is why the button carries its
-                  own aria-label. */}
-              <div>
-                <span className="hud-label mb-1 block">Their CSV</span>
-                <Button
-                  variant="danger"
-                  aria-label="Remove their CSV"
-                  onClick={() => {
-                    clearCompareCorpus();
-                    setError(null);
-                  }}
-                >
-                  Remove
-                </Button>
-              </div>
-            </div>
-            <p className="mt-3 max-w-xl text-xs leading-relaxed text-faint">
-              Bodyweight is needed for pull ups, dips and push ups &mdash; they are logged at
-              zero load, so their real effort is the lifter&rsquo;s own body.
+        {theirParse.error && (
+          <Notice tone="danger" title="Their stored export can no longer be read">
+            <p>{theirParse.error}</p>
+            <p className="mt-1">
+              It parsed when it was dropped, so this is most likely a change in the importer. Drop
+              the file again, or remove it below.
             </p>
-          </Card>
+          </Notice>
         )}
+
+        {unitMismatch && their?.import && (
+          <Notice tone="warn">
+            Their export was read as <strong>{their.import.unit}</strong>, which differs from the
+            input unit now selected. It is still being read as {their.import.unit} &mdash; drop it
+            again to reinterpret it.
+          </Notice>
+        )}
+
+        {kept && (
+          <Notice tone="warn" title="Kept what was already here.">
+            <p>
+              {kept.label.trim() === '' ? 'The name' : kept.label} and{' '}
+              <span className="num">{kept.entries}</span> bodyweight{' '}
+              {kept.entries === 1 ? 'entry' : 'entries'} carried over onto the new file, on the
+              assumption this is a fresher export from the same person.
+            </p>
+            <div className="mt-2">
+              <Button
+                size="sm"
+                onClick={() => {
+                  clearComparePerson();
+                  setKept(null);
+                }}
+              >
+                Not them &mdash; start fresh
+              </Button>
+            </div>
+          </Notice>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <SectionLabel
+          actions={
+            their && (
+              // Two separate deletions, because the two halves have separate
+              // lives: a fresher export arrives without their weight changing,
+              // and a bad measurements import should not cost them their CSV.
+              // Both are destructive, so both are red.
+              <div className="flex gap-2">
+                {their.import && (
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    onClick={() => {
+                      clearCompareImport();
+                      setDropError(null);
+                      setKept(null);
+                    }}
+                  >
+                    Remove {theirs} CSV
+                  </Button>
+                )}
+                {their.bodyweight.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    onClick={() => patchComparePerson({ bodyweight: [] })}
+                  >
+                    Remove {theirs} weights
+                  </Button>
+                )}
+              </div>
+            )
+          }
+        >
+          Who you are comparing against
+        </SectionLabel>
+
+        <Card>
+          <div className="max-w-xs">
+            <Field label="Their name" hint="Only a label. Used everywhere below.">
+              <Input
+                value={label}
+                onChange={(e) => patchComparePerson({ label: e.target.value })}
+                placeholder="Them"
+              />
+            </Field>
+          </div>
+
+          <h3 className="mt-5 text-sm font-semibold text-ink">Their bodyweight</h3>
+          <p className="mt-1 max-w-2xl text-xs leading-relaxed text-dim">
+            Pull ups, dips and push ups are logged at zero load, so their real effort is the
+            lifter&rsquo;s own body and none of those movements can be compared without it. A dated
+            history rather than one number, so their sets resolve against what they weighed at the
+            time &mdash; the same way yours do.
+          </p>
+          <div className="mt-3">
+            <BodyweightEditor
+              entries={their?.bodyweight ?? []}
+              onChange={(next) => patchComparePerson({ bodyweight: next })}
+              span={theirSpan}
+              unit={their?.import?.unit ?? data.settings.inputUnit}
+              owner={label}
+              spanHint={
+                <Notice tone="warn" title="Drop their workout export first.">
+                  Readings are clipped to the span their workouts cover, so there is nothing to clip
+                  against yet. Entries typed by hand below work either way.
+                </Notice>
+              }
+            />
+          </div>
+        </Card>
       </section>
 
       {comparison && (
@@ -228,31 +375,15 @@ export function Compare() {
           c={comparison}
           unit={unit}
           scale={scale}
-          onScale={(next) => patchCompareCorpus({ scale: next })}
+          onScale={(next) => patchComparePerson({ scale: next })}
           yourKg={yourKg}
+          themKg={themKg}
+          theirs={theirs}
         />
       )}
     </div>
   );
 }
-
-const EXCLUDED_COPY: Record<Excluded, string> = {
-  'machine-or-cable':
-    'Machine and cable loads are not a shared unit. 60 kg on one manufacturer’s stack is not 60 kg on another’s, and a cable’s label depends on the pulley ratio.',
-  'unknown-equipment':
-    'The export does not say what equipment these use, so whether the load is comparable cannot be checked. Strong only states it in a trailing parenthetical.',
-  'needs-bodyweight':
-    'These are bodyweight movements. The load is the lifter’s own body, so both bodyweights are needed before the numbers mean the same thing.',
-  'not-enough-history':
-    'Fewer than three sessions with a usable estimate on one side or the other.',
-};
-
-const EXCLUDED_TITLE: Record<Excluded, string> = {
-  'machine-or-cable': 'Not comparable across gyms',
-  'unknown-equipment': 'Equipment not stated',
-  'needs-bodyweight': 'Needs both bodyweights',
-  'not-enough-history': 'Not enough shared history',
-};
 
 function Results({
   c,
@@ -260,14 +391,25 @@ function Results({
   scale,
   onScale,
   yourKg,
+  themKg,
+  theirs,
 }: {
   c: Comparison;
-  unit: 'kg' | 'lb';
-  scale: 'absolute' | 'relative';
-  onScale: (s: 'absolute' | 'relative') => void;
+  unit: WeightUnit;
+  scale: CompareScale;
+  onScale: (s: CompareScale) => void;
   yourKg: number | null;
+  themKg: number | null;
+  /** Possessive form of their name, or "their" when unnamed. */
+  theirs: string;
 }) {
   const them = c.them.label;
+  const stem = slugify('you vs ' + them);
+  const opts = { unit, scale, yourKg, themKg };
+  const [align, setAlign] = useState<ProgressionAlign>('elapsed');
+  /** Null means "the first one" -- the list is re-sorted on every scale change. */
+  const [picked, setPicked] = useState<string | null>(null);
+  const charted = c.lifts.find((l) => l.name === picked) ?? c.lifts[0] ?? null;
   const byReason = new Map<Excluded, string[]>();
   for (const e of c.excluded) {
     const list = byReason.get(e.reason);
@@ -278,7 +420,35 @@ function Results({
   return (
     <>
       <section>
-        <SectionLabel>What can actually be compared</SectionLabel>
+        <SectionLabel
+          actions={
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={() =>
+                  downloadText(
+                    stem + '.md',
+                    'text/markdown;charset=utf-8',
+                    comparisonToMarkdown(c, opts),
+                  )
+                }
+              >
+                Export Markdown
+              </Button>
+              <Button
+                size="sm"
+                disabled={c.lifts.length === 0}
+                onClick={() =>
+                  downloadText(stem + '-lifts.csv', 'text/csv;charset=utf-8', sharedLiftsToCsv(c, opts))
+                }
+              >
+                Export lifts CSV
+              </Button>
+            </div>
+          }
+        >
+          What can actually be compared
+        </SectionLabel>
         <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
           <Tile label="Lifts compared" value={c.lifts.length} size="lg" tone="accent" />
           <Tile label="Shared, not comparable" value={c.excluded.length} hint="see below" />
@@ -296,8 +466,8 @@ function Results({
       {!c.bodyweightKnown && (
         <Notice tone="warn" title="Bodyweight movements are being left out.">
           Pull ups, dips and push ups are logged at zero load, so their real effort is the
-          lifter&rsquo;s own body. Fill in {them}&rsquo;s bodyweight above
-          {yourKg === null && ' and record your own in Settings'} to bring them in.
+          lifter&rsquo;s own body. Record {theirs} bodyweight above
+          {yourKg === null && ' and your own in Settings'} to bring them in.
         </Notice>
       )}
 
@@ -324,6 +494,15 @@ function Results({
             over a sample, so it climbs with the number of attempts logged rather than with
             strength; the PR column is there for context and carries its session count.
           </p>
+          <Card>
+            <RatioBars
+              lifts={c.lifts}
+              scale={scale}
+              youLabel="You"
+              themLabel={them}
+              unit={unit}
+            />
+          </Card>
           <Card padded={false}>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[44rem] border-collapse text-left text-sm">
@@ -373,6 +552,59 @@ function Results({
               Per-kg figures need both bodyweights, so this column is empty until they are set.
             </p>
           )}
+        </section>
+      )}
+
+      {charted && (
+        <section className="space-y-3">
+          <SectionLabel
+            actions={
+              <Toggle
+                value={align}
+                onChange={setAlign}
+                label="Align"
+                options={[
+                  { value: 'elapsed', label: 'From each start' },
+                  { value: 'calendar', label: 'By date' },
+                ]}
+              />
+            }
+          >
+            Side by side, over time
+          </SectionLabel>
+          <ChartCard
+            title={charted.name}
+            subtitle="Best estimated 1RM per session"
+            actions={
+              c.lifts.length > 1 && (
+                <Select
+                  value={charted.name}
+                  aria-label="Lift to chart"
+                  onChange={(e) => setPicked(e.target.value)}
+                  className="w-56"
+                >
+                  {c.lifts.map((l) => (
+                    <option key={l.name} value={l.name}>
+                      {l.name}
+                    </option>
+                  ))}
+                </Select>
+              )
+            }
+            note={
+              align === 'elapsed'
+                ? 'Weeks from each person’s own first session with this lift. Two people’s calendars rarely overlap, and on a shared date axis whoever started earlier is drawn as a long flat line beside a short steep one — which reads as a difference in progress rather than in start date.'
+                : 'Real dates, so a shared training period lines up. Lines break across gaps longer than four weeks rather than inventing progress through them.'
+            }
+          >
+            <PairedProgression
+              lift={charted}
+              youLabel="You"
+              themLabel={them}
+              unit={unit}
+              align={align}
+            />
+          </ChartCard>
         </section>
       )}
 
@@ -447,6 +679,22 @@ function Results({
           <ShapeCard shape={c.you} unit={unit} />
           <ShapeCard shape={c.them} unit={unit} />
         </div>
+        <div className="grid gap-3 lg:grid-cols-2">
+          <ChartCard
+            title="Volume by muscle"
+            subtitle="Share of resolvable volume"
+            note="Their side runs entirely on guessed exercise tags. Yours can be corrected in the tagging tray; theirs has no such path, because their vocabulary is not yours to curate."
+          >
+            <PairedMuscleShare you={c.you} them={c.them} />
+          </ChartCard>
+          <ChartCard
+            title="Rep distribution"
+            subtitle="Share of working sets at each rep count"
+            note="Share rather than count, so a longer history does not simply win. Not pre-binned into 1-5 / 6-12 / 13+: the multi-modality is the finding, and coarse bins erase it."
+          >
+            <PairedRepBars you={c.you} them={c.them} />
+          </ChartCard>
+        </div>
       </section>
 
       {c.theyDoYouDont.length > 0 && (
@@ -488,27 +736,6 @@ function ShapeCard({
         <Row label="Volume / week" value={formatVolume(shape.volumePerWeekKg, unit)} />
         <Row label="Sessions logged" value={String(shape.sessions)} />
       </dl>
-      {shape.muscleShare.length > 0 && (
-        <>
-          <p className="hud-label mt-4">Volume by muscle</p>
-          <ul className="mt-1 space-y-1">
-            {shape.muscleShare.slice(0, 6).map((m) => (
-              <li key={m.group} className="flex items-center gap-2 text-xs">
-                <span className="w-20 shrink-0 text-dim">{m.group}</span>
-                <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-sunken">
-                  <span
-                    className="block h-full rounded-full bg-accent"
-                    style={{ width: (m.share * 100).toFixed(1) + '%' }}
-                  />
-                </span>
-                <span className="num w-9 shrink-0 text-right text-ink">
-                  {Math.round(m.share * 100)}%
-                </span>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
     </Card>
   );
 }

@@ -97,7 +97,15 @@ export type LiftRow = {
   ratio: number;
   /** The same ratio after dividing each by their own bodyweight, when known. */
   relativeRatio: number | null;
+  /**
+   * Both sides' session bests, oldest first -- what the medians and slopes above
+   * were computed from. Carried on the row rather than recomputed by the view,
+   * which would mean a second pass over every set to draw the same numbers.
+   */
+  series: { you: SessionPoint[]; them: SessionPoint[] };
 };
+
+export type SessionPoint = { date: Date; kg: number };
 
 export type SlopeRow = {
   name: string;
@@ -165,7 +173,7 @@ function byCanonical(sets: EnrichedSet[]): Map<string, EnrichedSet[]> {
 }
 
 /** Usable session-best e1RMs for one lift, oldest first. */
-function bests(sets: EnrichedSet[]): Array<{ date: Date; kg: number }> {
+function bests(sets: EnrichedSet[]): SessionPoint[] {
   return sessionBests(sets)
     .filter((b) => b.bestE1rmKg !== null)
     .sort((a, b) => a.date.getTime() - b.date.getTime())
@@ -173,9 +181,7 @@ function bests(sets: EnrichedSet[]): Array<{ date: Date; kg: number }> {
 }
 
 /** kg per month, or null when the series cannot support a fit. */
-function slopePerMonth(
-  points: Array<{ date: Date; kg: number }>,
-): { perMonth: number; z: number } | null {
+function slopePerMonth(points: SessionPoint[]): { perMonth: number; z: number } | null {
   if (points.length < MIN_SLOPE_POINTS) return null;
   const first = points[0]?.date as Date;
   const last = points[points.length - 1]?.date as Date;
@@ -337,6 +343,7 @@ export function compareCorpora(you: Corpus, them: Corpus): Comparison {
         bodyweightKnown && you.bodyweightKg && them.bodyweightKg
           ? themKg / them.bodyweightKg / (youKg / you.bodyweightKg)
           : null,
+      series: { you: a, them: b },
     });
 
     const sa = slopePerMonth(a);

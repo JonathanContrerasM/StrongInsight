@@ -460,18 +460,36 @@ export function BalanceChart({
   points,
   metric,
   labels,
+  invert = false,
   height = 160,
 }: {
   points: BalancePoint[];
   metric: 'pullPushLog2' | 'lowerUpperLog2';
+  /** `labels[0]` is the side drawn UPWARD; `labels[1]` the side drawn down. */
   labels: [string, string];
+  /**
+   * Negate before plotting, for a metric whose sign runs the opposite way to how
+   * the card is titled -- `lowerUpperLog2` is log2(lower/upper), so without this
+   * a card called "Upper / lower" draws its upper-heavy weeks downward.
+   *
+   * The negation happens once, where the value is read. Bar direction, fill,
+   * tooltip sentence, swatches and the aria-label all derive from the sign and
+   * from `labels`, so nothing downstream needs a second flip.
+   */
+  invert?: boolean;
   height?: number;
 }) {
   const { tip, show, hide } = useTooltip();
-  const withData = points.filter((p) => p[metric] !== null);
+
+  const value = (p: BalancePoint): number | null => {
+    const raw = p[metric];
+    return raw === null ? null : invert ? -raw : raw;
+  };
+
+  const withData = points.filter((p) => value(p) !== null);
   if (withData.length < 2) return <NotEnoughData need="Needs at least 2 periods with both sides trained." />;
 
-  const maxAbs = Math.max(1, ...withData.map((p) => Math.abs(p[metric] as number)));
+  const maxAbs = Math.max(1, ...withData.map((p) => Math.abs(value(p) as number)));
 
   return (
     <div>
@@ -488,7 +506,7 @@ export function BalanceChart({
               <rect x={0} y={bandTop} width={innerW} height={bandBottom - bandTop} fill={BAND} />
               <line x1={0} x2={innerW} y1={zero} y2={zero} stroke={AXIS} />
               {points.map((p, i) => {
-                const v = p[metric];
+                const v = value(p);
                 if (v === null) return null;
                 const py = y(v);
                 return (
@@ -512,8 +530,8 @@ export function BalanceChart({
                 onHover={(i, pos) => {
                   if (i === null || !pos) return hide();
                   const p = points[i];
-                  const v = p?.[metric];
-                  if (!p || v === null || v === undefined) return hide();
+                  const v = p ? value(p) : null;
+                  if (!p || v === null) return hide();
                   const ratio = Math.pow(2, v);
                   return show(
                     pos.clientX,

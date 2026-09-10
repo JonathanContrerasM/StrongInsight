@@ -212,9 +212,17 @@ export function Dashboard({
 
           <ChartCard
             title="Upper / lower balance"
-            subtitle="Ratio of lower-body to upper-body volume."
+            subtitle="Ratio of upper-body to lower-body volume."
           >
-            <BalanceChart points={a.balance} metric="lowerUpperLog2" labels={['lower', 'upper']} />
+            {/* `invert`, because the metric is log2(lower/upper): without it an
+                upper-heavy week would be drawn below the line on a card titled
+                "Upper / lower". */}
+            <BalanceChart
+              points={a.balance}
+              metric="lowerUpperLog2"
+              labels={['upper', 'lower']}
+              invert
+            />
           </ChartCard>
         </div>
       </section>

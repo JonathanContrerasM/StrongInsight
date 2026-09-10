@@ -375,8 +375,8 @@ function Tour() {
             Loads are another matter, and the headline number is the median session best rather than
             the personal best: a max climbs with the number of attempts logged, so comparing a
             five-year export against a one-year one on PRs would flatter the longer history for
-            nothing. Their export is never persisted &mdash; no IndexedDB key, no sessionStorage,
-            gone on reload.
+            nothing. Their export and bodyweight history are stored on your device beside your own,
+            so the tab is still there after a reload &mdash; and one click forgets them.
           </p>
         </FeatureRow>
 
@@ -424,8 +424,8 @@ const PRIVACY: [string, string][] = [
     'So improving the parser reprocesses your existing data with no re-export, and the last five imports can be rolled back.',
   ],
   [
-    'A second person’s export is never persisted at all.',
-    'It lives in a module variable, so a reload clears it with no code required.',
+    'A second person’s data is stored the same way yours is.',
+    'Their export, name and bodyweight go into the same local database, are never uploaded, and are deleted by Forget or by Reset everything.',
   ],
   ['Reset everything means everything.', 'One button in Settings drops every stored key.'],
 ];
