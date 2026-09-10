@@ -49,6 +49,38 @@ export function mergeBodyweight(
   return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
 
+/** Plain YYYY-MM-DD, the only date form `BodyweightEntry` stores. */
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Add or replace one hand-entered reading.
+ *
+ * Upsert by date rather than append: a second reading for a day you already
+ * recorded is a correction, not a new observation. Returns the array unchanged
+ * when the input does not describe a reading -- the caller is a form, and a form
+ * is half-filled most of the time.
+ *
+ * Lives here rather than in the view because two views now edit a bodyweight
+ * history (yours in Settings, theirs on Compare) and they must agree.
+ */
+export function upsertBodyweight(
+  entries: BodyweightEntry[],
+  date: string,
+  rawKg: string | number,
+): BodyweightEntry[] {
+  // A decimal comma is what a German keyboard produces, and Number() rejects it.
+  const kg = typeof rawKg === 'number' ? rawKg : Number(String(rawKg).replace(',', '.'));
+  if (!Number.isFinite(kg) || kg <= 0) return entries;
+  if (!ISO_DAY.test(date)) return entries;
+  return [...entries.filter((e) => e.date !== date), { date, kg }].sort((a, b) =>
+    a.date.localeCompare(b.date),
+  );
+}
+
+export function removeBodyweight(entries: BodyweightEntry[], date: string): BodyweightEntry[] {
+  return entries.filter((e) => e.date !== date);
+}
+
 /**
  * Linear interpolation between recorded entries, clamped at both ends.
  * With no entries at all, returns `fallbackKg` (or null when none is configured)
