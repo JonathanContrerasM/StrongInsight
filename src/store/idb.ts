@@ -1,8 +1,15 @@
 import { get, set, del, createStore, type UseStore } from 'idb-keyval';
-import type { BodyweightEntry, ExerciseMeta, RawImport, Settings } from '../model/types';
+import type {
+  BodyweightEntry,
+  ComparePerson,
+  ExerciseMeta,
+  RawImport,
+  Settings,
+} from '../model/types';
 import { DEFAULT_SETTINGS } from '../model/types';
 import {
   readBodyweight,
+  readComparePerson,
   readMetaMap,
   readRawArchive,
   readRawImport,
@@ -16,6 +23,7 @@ export const KEYS = {
   metaExercises: 'meta:exercises',
   metaBodyweight: 'meta:bodyweight',
   settings: 'settings',
+  comparePerson: 'compare:person',
 } as const;
 
 /** Keep the last N imports so a bad rename can be rolled back. */
@@ -64,18 +72,22 @@ export type LoadedState = {
   meta: Record<string, ExerciseMeta>;
   bodyweight: BodyweightEntry[];
   settings: Settings;
+  /** The other person on the Compare tab. Null when there is not one. */
+  comparePerson: ComparePerson | null;
   warnings: ValidationWarning[];
 };
 
 export async function loadAll(): Promise<LoadedState> {
   const warnings: ValidationWarning[] = [];
-  const [rawCurrent, rawArchive, metaExercises, metaBodyweight, rawSettings] = await Promise.all([
-    readRaw(KEYS.rawCurrent),
-    readRaw(KEYS.rawArchive),
-    readRaw(KEYS.metaExercises),
-    readRaw(KEYS.metaBodyweight),
-    readRaw(KEYS.settings),
-  ]);
+  const [rawCurrent, rawArchive, metaExercises, metaBodyweight, rawSettings, rawCompare] =
+    await Promise.all([
+      readRaw(KEYS.rawCurrent),
+      readRaw(KEYS.rawArchive),
+      readRaw(KEYS.metaExercises),
+      readRaw(KEYS.metaBodyweight),
+      readRaw(KEYS.settings),
+      readRaw(KEYS.comparePerson),
+    ]);
 
   return {
     current: readRawImport(KEYS.rawCurrent, rawCurrent, warnings),
@@ -83,6 +95,7 @@ export async function loadAll(): Promise<LoadedState> {
     meta: readMetaMap(metaExercises, warnings),
     bodyweight: readBodyweight(metaBodyweight, warnings),
     settings: readSettings(rawSettings, warnings),
+    comparePerson: readComparePerson(rawCompare, warnings),
     warnings,
   };
 }
@@ -123,6 +136,21 @@ export function saveBodyweight(entries: BodyweightEntry[]): Promise<void> {
 
 export function saveSettings(settings: Settings): Promise<void> {
   return withLock(KEYS.settings, () => put(KEYS.settings, settings));
+}
+
+/** Null deletes the key outright, so "forget them" leaves nothing behind. */
+export function saveComparePerson(person: ComparePerson | null): Promise<void> {
+  return withLock(KEYS.comparePerson, async () => {
+    if (person === null) {
+      try {
+        await del(KEYS.comparePerson, db());
+      } catch {
+        /* nothing useful to do */
+      }
+      return;
+    }
+    await put(KEYS.comparePerson, person);
+  });
 }
 
 export async function resetAll(): Promise<void> {

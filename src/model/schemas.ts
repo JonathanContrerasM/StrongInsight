@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { EQUIPMENT, LOAD_TYPES, MOVEMENT_PATTERNS, MUSCLES, DEFAULT_SETTINGS } from './types';
-import type { BodyweightEntry, ExerciseMeta, RawImport, Settings } from './types';
+import type { BodyweightEntry, ComparePerson, ExerciseMeta, RawImport, Settings } from './types';
 
 /**
  * Zod guards PERSISTED records only -- never CSV rows. Running safeParse across
@@ -50,6 +50,17 @@ export const rawImportSchema = z.object({
 });
 
 export const rawArchiveSchema = z.array(rawImportSchema);
+
+/**
+ * The other person. `bodyweight` is deliberately left OUT of this object and
+ * salvaged row by row in `readComparePerson` -- one bad weight reading must not
+ * discard their export and their name along with it.
+ */
+export const comparePersonSchema = z.object({
+  label: z.string().default(''),
+  scale: z.enum(['absolute', 'relative']).default('absolute'),
+  import: rawImportSchema.nullable().default(null),
+});
 
 export type ValidationWarning = { key: string; message: string };
 
@@ -158,4 +169,72 @@ export function readRawArchive(value: unknown, warnings: ValidationWarning[]): R
     if (parsed.success) out.push(parsed.data);
   }
   return out;
+}
+
+/**
+ * Salvage policy, as for metadata and bodyweight: keep whatever parses.
+ *
+ * The record is layered -- a corrupt `import` degrades to "named, no file"
+ * rather than losing the person, and a corrupt weight row is dropped rather than
+ * emptying the history.
+ */
+export function readComparePerson(
+  value: unknown,
+  warnings: ValidationWarning[],
+): ComparePerson | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'object' || Array.isArray(value)) {
+    warnings.push({ key: 'compare:person', message: 'expected an object; ignored' });
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+
+  const head = comparePersonSchema.safeParse({ ...record, bodyweight: undefined });
+  let label = '';
+  let scale: ComparePerson['scale'] = 'absolute';
+  let rawImport: RawImport | null = null;
+  if (head.success) {
+    label = head.data.label;
+    scale = head.data.scale;
+    rawImport = head.data.import;
+  } else {
+    // Try again without the import: a broken export should not cost them a name.
+    const withoutImport = comparePersonSchema.safeParse({
+      ...record,
+      bodyweight: undefined,
+      import: null,
+    });
+    if (!withoutImport.success) {
+      warnings.push({ key: 'compare:person', message: 'unreadable; ignored' });
+      return null;
+    }
+    label = withoutImport.data.label;
+    scale = withoutImport.data.scale;
+    warnings.push({ key: 'compare:person', message: 'their export was corrupt and was dropped' });
+  }
+
+  const bodyweight: BodyweightEntry[] = [];
+  let dropped = 0;
+  if (Array.isArray(record.bodyweight)) {
+    for (const v of record.bodyweight) {
+      const parsed = bodyweightEntrySchema.safeParse(v);
+      if (parsed.success) bodyweight.push(parsed.data);
+      else dropped++;
+    }
+  } else if (record.bodyweight !== undefined && record.bodyweight !== null) {
+    warnings.push({ key: 'compare:person', message: 'their bodyweight was not an array; ignored' });
+  }
+  if (dropped > 0) {
+    warnings.push({
+      key: 'compare:person',
+      message:
+        dropped +
+        ' of their bodyweight entr' +
+        (dropped === 1 ? 'y was' : 'ies were') +
+        ' corrupt and skipped',
+    });
+  }
+
+  if (label === '' && rawImport === null && bodyweight.length === 0) return null;
+  return { label, scale, bodyweight, import: rawImport };
 }

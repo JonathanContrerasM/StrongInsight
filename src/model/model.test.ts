@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { effectiveLoad } from './effectiveLoad';
-import { bodyweightAt, makeBodyweightResolver, mergeBodyweight } from './bodyweight';
+import {
+  bodyweightAt,
+  makeBodyweightResolver,
+  mergeBodyweight,
+  removeBodyweight,
+  upsertBodyweight,
+} from './bodyweight';
 import type { BodyweightEntry } from './types';
 
 describe('effectiveLoad', () => {
@@ -125,5 +131,59 @@ describe('mergeBodyweight', () => {
     expect(manual).toHaveLength(2);
     expect(manual[1]?.kg).toBe(82);
     expect(imported).toHaveLength(1);
+  });
+});
+
+/**
+ * The rules behind the add/update form, lifted out of the Settings view once a
+ * second person's history needed the identical behaviour.
+ */
+describe('upsertBodyweight', () => {
+  const base: BodyweightEntry[] = [
+    { date: '2025-01-01', kg: 80 },
+    { date: '2025-03-01', kg: 78 },
+  ];
+
+  it('inserts in date order', () => {
+    expect(upsertBodyweight(base, '2025-02-01', 79)).toEqual([
+      { date: '2025-01-01', kg: 80 },
+      { date: '2025-02-01', kg: 79 },
+      { date: '2025-03-01', kg: 78 },
+    ]);
+  });
+
+  /** A second reading for a recorded day is a correction, not an observation. */
+  it('replaces the reading for a day already recorded', () => {
+    const next = upsertBodyweight(base, '2025-01-01', 81);
+    expect(next).toHaveLength(2);
+    expect(next[0]).toEqual({ date: '2025-01-01', kg: 81 });
+  });
+
+  it('accepts a decimal comma, which is what a German keyboard produces', () => {
+    expect(upsertBodyweight([], '2025-01-01', '78,5')).toEqual([{ date: '2025-01-01', kg: 78.5 }]);
+  });
+
+  /**
+   * Returns the SAME array, not a copy: the caller is a form, half-filled most
+   * of the time, and identity is how it knows nothing happened.
+   */
+  it('refuses anything that is not a reading, unchanged', () => {
+    expect(upsertBodyweight(base, '2025-01-05', '')).toBe(base);
+    expect(upsertBodyweight(base, '2025-01-05', 'heavy')).toBe(base);
+    expect(upsertBodyweight(base, '2025-01-05', 0)).toBe(base);
+    expect(upsertBodyweight(base, '2025-01-05', -80)).toBe(base);
+    expect(upsertBodyweight(base, '05/01/2025', 80)).toBe(base);
+    expect(upsertBodyweight(base, '', 80)).toBe(base);
+  });
+});
+
+describe('removeBodyweight', () => {
+  it('drops the entry for one day and leaves the rest', () => {
+    const base: BodyweightEntry[] = [
+      { date: '2025-01-01', kg: 80 },
+      { date: '2025-03-01', kg: 78 },
+    ];
+    expect(removeBodyweight(base, '2025-01-01')).toEqual([{ date: '2025-03-01', kg: 78 }]);
+    expect(removeBodyweight(base, '2099-01-01')).toEqual(base);
   });
 });

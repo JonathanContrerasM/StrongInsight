@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   readBodyweight,
+  readComparePerson,
   readMetaMap,
   readRawArchive,
   readRawImport,
@@ -148,6 +149,59 @@ describe('raw imports', () => {
   });
 });
 
+describe('readComparePerson', () => {
+  const RAW = { text: 'Datum;Ubung', importedAt: 1, filename: 'alex.csv', unit: 'kg' };
+
+  it('round-trips a whole person', () => {
+    const w = warns();
+    const p = readComparePerson(
+      { label: 'Alex', scale: 'relative', bodyweight: [{ date: '2025-01-02', kg: 78 }], import: RAW },
+      w,
+    );
+    expect(p).toEqual({
+      label: 'Alex',
+      scale: 'relative',
+      bodyweight: [{ date: '2025-01-02', kg: 78 }],
+      import: RAW,
+    });
+    expect(w).toHaveLength(0);
+  });
+
+  /** Salvage, not all-or-nothing: one bad reading must not cost them their export. */
+  it('drops a corrupt weight row and keeps the rest', () => {
+    const w = warns();
+    const p = readComparePerson(
+      {
+        label: 'Alex',
+        scale: 'absolute',
+        bodyweight: [{ date: '2025-01-02', kg: 78 }, { date: 'whenever', kg: 'heavy' }],
+        import: RAW,
+      },
+      w,
+    );
+    expect(p?.bodyweight).toEqual([{ date: '2025-01-02', kg: 78 }]);
+    expect(p?.import).toEqual(RAW);
+    expect(w).toHaveLength(1);
+  });
+
+  /** A broken export degrades to "named, no file" rather than losing the person. */
+  it('keeps the person when their import is corrupt', () => {
+    const w = warns();
+    const p = readComparePerson(
+      { label: 'Alex', scale: 'absolute', bodyweight: [], import: { text: 42 } },
+      w,
+    );
+    expect(p?.label).toBe('Alex');
+    expect(p?.import).toBeNull();
+    expect(w).toHaveLength(1);
+  });
+
+  it('reads an entirely empty record as no second person at all', () => {
+    expect(readComparePerson(undefined, warns())).toBeNull();
+    expect(readComparePerson({ label: '', bodyweight: [], import: null }, warns())).toBeNull();
+  });
+});
+
 describe('no read ever throws', () => {
   const nasties: unknown[] = [
     undefined,
@@ -169,6 +223,7 @@ describe('no read ever throws', () => {
       expect(() => readBodyweight(v, warns())).not.toThrow();
       expect(() => readRawImport('raw:current', v, warns())).not.toThrow();
       expect(() => readRawArchive(v, warns())).not.toThrow();
+      expect(() => readComparePerson(v, warns())).not.toThrow();
     }
   });
 });

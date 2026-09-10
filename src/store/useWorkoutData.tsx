@@ -33,6 +33,7 @@ import {
   saveMeta,
   saveSettings,
 } from './idb';
+import { clearComparePerson, hydrateComparePerson } from './comparePerson';
 
 /**
  * The single memo graph, mounted once and shared by context.
@@ -119,6 +120,10 @@ export function WorkoutDataProvider({ children }: { children: ReactNode }) {
       setMeta(s.meta);
       setBodyweightState(s.bodyweight);
       setSettings(s.settings);
+      // The other person lives in a module store, not in this provider's state --
+      // only Compare cares about them. This is the one place that already awaits
+      // IDB, so the seed happens here rather than opening a second connection.
+      hydrateComparePerson(s.comparePerson);
       setWarnings(s.warnings);
       setStatus(s.warnings.length > 0 ? 'degraded' : 'ready');
     });
@@ -325,6 +330,9 @@ export function WorkoutDataProvider({ children }: { children: ReactNode }) {
 
   const reset = useCallback(async () => {
     await resetAll();
+    // resetAll deleted compare:person, but the module store would keep serving
+    // its in-memory copy until a reload.
+    clearComparePerson();
     setCurrent(null);
     setArchive([]);
     setMeta({});
