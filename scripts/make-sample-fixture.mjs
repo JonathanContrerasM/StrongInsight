@@ -43,6 +43,8 @@ export const SAMPLE_QUIRKS = [
   'a distance row',
   'push/pull/legs session structure',
   'a gap longer than 28 days',
+  'a lift that climbs steadily within tight noise (Seated Row)',
+  'a lift that sits flat within tight noise (Leg Press)',
 ];
 
 /** Mulberry32 -- small, seeded, reproducible. */
@@ -137,8 +139,15 @@ function emitExercise(date, workout, duration, name, baseWeight, baseReps, opts 
       // Movement prep on an external exercise: a real set carrying no load.
       push([date, workout, duration, name, String(s), 0, baseReps, 0, 0]);
     } else {
-      const weight = baseWeight === 0 ? (opts.added ?? 0) : jitter(baseWeight, baseWeight * 0.25);
-      push([date, workout, duration, name, String(s), weight, Math.max(1, Math.round(baseReps + (rand() - 0.5) * 3)), 0, 0]);
+      // `trendKg` and `spread` plant the two progression shapes the Improvements
+      // engine must tell apart: a steady climb and a genuine plateau. Both take
+      // the same single rand() as the default, so the sequence is unchanged.
+      const weight =
+        baseWeight === 0
+          ? (opts.added ?? 0)
+          : jitter(baseWeight + (opts.trendKg ?? 0), opts.spread ?? baseWeight * 0.25);
+      const reps = Math.max(1, Math.round(baseReps + (rand() - 0.5) * (opts.repSpread ?? 3)));
+      push([date, workout, duration, name, String(s), weight, reps, 0, 0]);
     }
 
     // Rest row after most sets. One of them deliberately carries seconds = 0,
@@ -190,6 +199,16 @@ for (let week = 0; week < 14; week++) {
         if (week === 5) opts.zeroReps = true;
       }
       if (name === 'Lateral Raise (Dumbbell)' && week % 5 === 2) opts.dropset = true;
+      // The planted shapes. Everything else jitters by a quarter of its base,
+      // which is trendless noise the engine must refuse to call either way.
+      if (name === 'Seated Row (Cable)') {
+        opts.trendKg = week * 1.5;
+        opts.spread = 3;
+      }
+      if (name === 'Leg Press') {
+        opts.spread = 2;
+        opts.repSpread = 0;
+      }
       emitExercise(stamp, workout, duration, name, weight, reps, opts);
     });
 

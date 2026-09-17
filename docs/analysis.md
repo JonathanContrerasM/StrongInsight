@@ -225,6 +225,24 @@ Two framing decisions worth keeping:
 Findings that are *facts* rather than inferences — a lift genuinely untouched for 119 days —
 carry `z: null` and bypass the gate explicitly, so the gate cannot quietly become decorative.
 
+**A plateau is a claim, and gets tested.** A slope that merely fails to be negative is what every
+lift looks like before there is evidence either way, so "stalled" is not "slope about zero". The
+rule asks whether the fitted gain over the observed span is *significantly smaller than a
+meaningful one* — 2.5% of the lift's estimated 1RM, one small plate a side over two months or more
+— and scores it as how many standard errors the slope sits below that minimum, through the same
+family-corrected gate as everything else. A slope that is negative but not provably so gets the
+same test, because flat is where most such lifts actually sit; only a *provably* falling lift is
+reported as going backwards. A lift with the identical e1RM in every session has no scatter to
+infer from and is reported as a fact. The synthetic fixture plants one of each shape — a steady
+climb and a tight plateau — and a test asserts the engine tells them apart while calling nothing
+on the lifts that merely jitter.
+
+**What is going well shares the gate.** A lift climbing at three sigma is as real as one falling at
+three sigma, and a page that can only ever accuse reads as a list of accusations. So a test that
+comes back fine may hand the collector the good-direction finding, and it is shown under *Going
+well* only if it would have survived as a weakness. Below the bar it is silently a pass: the
+counters keep their meaning, and the section cannot become the soft-focus version of the tab.
+
 **The PR-rate rule looks at the last twelve months only.** Over a whole history the rate of
 personal records *always* falls — a first year is nothing but records — and a rule that measured
 the whole span would tell every intermediate lifter they are drying up. Over the last year, a

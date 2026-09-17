@@ -97,6 +97,27 @@ export function Improvements({ onSelectExercise }: { onSelectExercise?: (name: s
         );
       })}
 
+      {insights.positives.length > 0 && (
+        <section className="space-y-3">
+          <SectionLabel>Going well</SectionLabel>
+          <p className="-mt-1 text-xs text-dim">
+            The same tests, in the direction nobody needs to fix. Held to the same evidence bar as
+            everything above, so this is not the soft-focus version of the page.
+          </p>
+          <div className="space-y-3">
+            {insights.positives.map((f) => (
+              <FindingCard
+                key={f.id}
+                finding={f}
+                weekStartsOn={data.settings.weekStartsOn}
+                onSelectExercise={onSelectExercise}
+                positive
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
       <Methodology insights={insights} />
     </div>
   );
@@ -106,14 +127,17 @@ function FindingCard({
   finding: f,
   weekStartsOn,
   onSelectExercise,
+  positive = false,
 }: {
   finding: Finding;
   weekStartsOn: 0 | 1;
   onSelectExercise?: (name: string) => void;
+  /** A "going well" card: no rail, and the confidence badge reads good rather than warn. */
+  positive?: boolean;
 }) {
   const clickable = f.subject !== undefined && onSelectExercise !== undefined;
   return (
-    <Card rail={f.confidence === 'clear'}>
+    <Card rail={!positive && f.confidence === 'clear'}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <h3 className="text-sm font-semibold text-ink">
@@ -131,7 +155,7 @@ function FindingCard({
           </h3>
           <p className="mt-1 max-w-2xl text-xs leading-relaxed text-dim">{f.detail}</p>
         </div>
-        <Badge tone={f.confidence === 'clear' ? 'warn' : 'neutral'}>
+        <Badge tone={f.confidence !== 'clear' ? 'neutral' : positive ? 'good' : 'warn'}>
           {f.confidence === 'clear' ? 'clear' : 'suggestive'}
         </Badge>
       </div>
@@ -211,7 +235,14 @@ function Methodology({ insights }: { insights: FindingSet }) {
           <span className="num text-ink">{insights.suppressed}</span> were too weak to
           distinguish from chance and are not shown, and{' '}
           <span className="num text-ink">{insights.notAdverse}</span> came back with nothing
-          wrong. A finding is marked <strong className="text-ink">clear</strong> only if it
+          wrong
+          {insights.positives.length > 0 && (
+            <>
+              , of which <span className="num text-ink">{insights.positives.length}</span>{' '}
+              cleared the bar in the good direction and are listed under Going well
+            </>
+          )}
+          . A finding is marked <strong className="text-ink">clear</strong> only if it
           survives a correction for how many patterns were searched alongside it;{' '}
           <strong className="text-ink">suggestive</strong> ones clear the ordinary bar but not
           that one, and are worth a look rather than an action.
