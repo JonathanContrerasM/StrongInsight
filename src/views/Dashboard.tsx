@@ -6,12 +6,18 @@ import { SplitPanel } from '../viz/SplitMatrix';
 import { HabitHeatmap, MuscleHeatmap, type MuscleScale } from '../viz/Heatmaps';
 import { StackedVolume, BalanceChart } from '../viz/TimeSeries';
 import { RepHistogram } from '../viz/Distributions';
+import { RecordsChart } from '../viz/Records';
+import { RecordList } from './RecordList';
 import { ChartCard, Toggle, UnverifiedChip } from '../charts/parts';
 import { EmptyState, SectionLabel, Tile } from '../ui/primitives';
-import { volume, setCounts } from '../derive';
+import { volume, setCounts, daysBetween } from '../derive';
 import { formatDate, formatVolume } from '../format';
 import type { Granularity } from '../derive/buckets';
 import type { GroupBy } from '../derive/balance';
+
+/** "Recent" on the records rail, in days before the last session. */
+const RECENT_DAYS = 90;
+const RECENT_LIST = 10;
 
 export function Dashboard({
   onSelectExercise,
@@ -39,6 +45,16 @@ export function Dashboard({
   const totals = volume(a.sets);
   const counts = setCounts(a.sets);
   const trainedDays = a.days.filter((d) => d.hasWorkout).length;
+
+  // Recency is against the last session in the corpus, never the wall clock --
+  // the same rule the insights engine follows, and the only one that reads
+  // sensibly against an export from three months ago.
+  const lastDay = a.days[a.days.length - 1]?.date ?? null;
+  const recentRecords = lastDay
+    ? a.records.filter((e) => daysBetween(e.date, lastDay) <= RECENT_DAYS)
+    : [];
+  const lastRecord = a.records[a.records.length - 1] ?? null;
+  const newestRecords = a.records.slice(-RECENT_LIST).reverse();
 
   return (
     <div className="space-y-8">
@@ -90,6 +106,47 @@ export function Dashboard({
                 : '-'}
             </span>
           </span>
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <SectionLabel>Records</SectionLabel>
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+          <Tile
+            label={'Records, last ' + RECENT_DAYS + ' days'}
+            value={recentRecords.length.toLocaleString()}
+            hint={lastDay ? 'to ' + formatDate(lastDay) : undefined}
+            size="lg"
+            tone={recentRecords.length > 0 ? 'good' : 'neutral'}
+          />
+          <Tile label="Records, all time" value={a.records.length.toLocaleString()} size="lg" />
+          <Tile
+            label="Last record"
+            value={lastRecord ? formatDate(lastRecord.date) : '-'}
+            hint={lastRecord ? lastRecord.exercise : 'none yet'}
+            size="lg"
+            className="col-span-2"
+          />
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <ChartCard
+            title="Records per month"
+            subtitle="A new best load, a new estimated 1RM, or more reps at a load already lifted. An exercise's first session sets none."
+          >
+            <RecordsChart buckets={a.recordsMonthly} />
+          </ChartCard>
+          <ChartCard title="Most recent" subtitle="The newest records, and the sessions they were set in.">
+            {newestRecords.length === 0 ? (
+              <p className="text-xs text-dim">No records yet.</p>
+            ) : (
+              <RecordList
+                events={newestRecords}
+                unit={unit}
+                onSelectExercise={onSelectExercise}
+                onSelectSession={(id) => onSelectSession(id)}
+              />
+            )}
+          </ChartCard>
         </div>
       </section>
 

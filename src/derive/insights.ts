@@ -4,6 +4,7 @@ import { summariseAll } from './index';
 import { balanceSeries, balanceVerdict, volumeMatrix, type MetaLookup } from './balance';
 import { bucketBy, daysBetween, type WeekStart } from './buckets';
 import { sessionBests } from './series';
+import { records, recordsPerBucket } from './records';
 import { median, proportionZ, quantile, slopeWithError, sortedFinite, zCritical } from './stats';
 
 /**
@@ -38,6 +39,7 @@ export type FindingKind =
   | 'layoff-pattern'
   | 'stalled-lift'
   | 'regressed-lift'
+  | 'pr-rate'
   | 'abandoned-lift'
   | 'neglected-muscle'
   | 'imbalance';
@@ -127,6 +129,14 @@ export const MIN_ABANDON_SESSIONS = 8;
 export const ABANDON_DAYS = 90;
 /** A gap longer than this is a layoff rather than a rest day. */
 export const LAYOFF_DAYS = 7;
+/**
+ * The PR-rate trend is measured over at most this many months, ending at the
+ * last session. Over a whole history the rate ALWAYS falls -- a first year is
+ * nothing but records -- and reporting that would tell every intermediate
+ * lifter they are drying up. Over the last year it says something about now.
+ */
+export const PR_RATE_MONTHS = 12;
+export const PR_RATE_MIN_MONTHS = 6;
 /**
  * Flag this many weekdays or more and it is a training schedule, not a set of
  * holes in one -- they fold into a single observation.
@@ -558,6 +568,75 @@ function stalledLifts(sets: EnrichedSet[], abandoned: Set<string>, c: Collector)
   }
 }
 
+/**
+ * Are personal records getting rarer?
+ *
+ * Counts every record kind together: a lift can set a rep PR for months
+ * without a load PR, and that is still progress. Only a decline is a weakness.
+ */
+function prRate(sets: EnrichedSet[], weekStartsOn: WeekStart, c: Collector): void {
+  let first: Date | null = null;
+  let last: Date | null = null;
+  for (const s of sets) {
+    if (first === null || s.date < first) first = s.date;
+    if (last === null || s.date > last) last = s.date;
+  }
+  if (first === null || last === null) {
+    c.skip('pr-rate');
+    return;
+  }
+  // Spanned to the corpus, not to the last record: the dry months since the
+  // last PR are the observation, and they only exist as empty buckets.
+  const months = recordsPerBucket(records(sets), {
+    granularity: 'month',
+    weekStartsOn,
+    span: { from: first, to: last },
+  });
+  const window = months.slice(-PR_RATE_MONTHS);
+  if (window.length < PR_RATE_MIN_MONTHS) {
+    c.skip('pr-rate');
+    return;
+  }
+
+  const counts = window.map((m) => m.count);
+  const fit = slopeWithError(counts.map((y, x) => ({ x, y })));
+  if (fit === null || fit.stdErr === 0) {
+    c.skip('pr-rate');
+    return;
+  }
+  if (fit.slope >= 0) {
+    c.pass();
+    return;
+  }
+  const mean = counts.reduce((a, b) => a + b, 0) / counts.length;
+  const startFit = Math.max(0, fit.intercept);
+  const endFit = Math.max(0, fit.intercept + fit.slope * (counts.length - 1));
+  c.test({
+    id: 'pr-rate',
+    kind: 'pr-rate',
+    family: 'progression',
+    weight: Math.abs(fit.z),
+    title: 'Personal records are drying up',
+    detail:
+      'Across the last ' + window.length + ' months the trend runs from about ' +
+      startFit.toFixed(1) + ' records a month to ' + endFit.toFixed(1) +
+      ', around an average of ' + mean.toFixed(1) + '. Every kind counts: a new best load, ' +
+      'a new estimated 1RM, or more reps at a load you had lifted before.',
+    evidence: {
+      observed: fit.slope,
+      expected: 0,
+      n: window.length,
+      z: fit.z,
+      familySize: 1,
+    },
+    chart: {
+      type: 'series',
+      values: counts,
+      trend: [fit.intercept, fit.intercept + fit.slope * (counts.length - 1)],
+    },
+  });
+}
+
 // --- neglect & imbalance ------------------------------------------------------
 
 /**
@@ -763,6 +842,7 @@ export function findings(
   // stalled, nor inflate the stall family size.
   const abandoned = abandonedLifts(sets, c);
   stalledLifts(sets, abandoned, c);
+  prRate(sets, opts.weekStartsOn, c);
   neglectedMuscles(sets, meta, opts.weekStartsOn, c);
   imbalances(sets, meta, opts.weekStartsOn, c);
 

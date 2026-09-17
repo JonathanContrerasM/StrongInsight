@@ -239,6 +239,7 @@ function Shell() {
               name={route.detail}
               onBack={backToList('exercises')}
               onSelectExercise={openExercise}
+              onSelectSession={openSession}
             />
           ) : (
             <ExerciseList onSelectExercise={openExercise} />

@@ -325,6 +325,54 @@ describe('stalled lifts', () => {
   });
 });
 
+describe('pr rate', () => {
+  /**
+   * Weekly sessions over `weeks`, with the load rising by `kgAt(week)`: every
+   * week the load rises is a load record, so PR density is directly planted.
+   */
+  function weekly(kgAt: (i: number) => number, weeks = 52): RowSpec[] {
+    const rows: RowSpec[] = [];
+    for (let i = 0; i < weeks; i++) {
+      const d = new Date(2024, 0, 1 + i * 7);
+      rows.push({
+        date:
+          d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') +
+          '-' + String(d.getDate()).padStart(2, '0') + ' 18:00:00',
+        workout: 'W' + i,
+        exercise: 'Bench Press (Barbell)',
+        weight: kgAt(i),
+        reps: 5,
+      });
+    }
+    return rows;
+  }
+
+  it('flags records that were weekly and then stopped', () => {
+    // 26 weeks of a new load every week, then 26 weeks parked at the same load.
+    const r = run(weekly((i) => (i < 26 ? 60 + i * 2.5 : 122.5)));
+    expect(of(r, 'pr-rate')).toHaveLength(1);
+    expect(of(r, 'pr-rate')[0]?.chart?.type).toBe('series');
+  });
+
+  it('says nothing when records keep coming at the same rate', () => {
+    const r = run(weekly((i) => 60 + i * 2.5));
+    expect(of(r, 'pr-rate')).toEqual([]);
+  });
+
+  it('counts the dry months after the last record, not just up to it', () => {
+    // Records for 10 weeks, then 40 weeks of nothing -- only visible if the
+    // window is spanned to the corpus rather than to the last record.
+    const r = run(weekly((i) => (i < 10 ? 60 + i * 2.5 : 82.5), 50));
+    expect(of(r, 'pr-rate')).toHaveLength(1);
+  });
+
+  it('refuses a corpus shorter than half a year', () => {
+    const r = run(weekly((i) => 60 + i * 2.5, 12));
+    expect(of(r, 'pr-rate')).toEqual([]);
+    expect(r.skippedRules).toContain('pr-rate');
+  });
+});
+
 /**
  * The real corpus, measured not specified. Skips on a clone without the
  * gitignored export, following `fixture.test.ts`.
