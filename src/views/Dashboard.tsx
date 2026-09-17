@@ -174,8 +174,32 @@ export function Dashboard({
         </div>
       </section>
 
-      <section>
+      <section className="space-y-4">
         <SectionLabel>Consistency</SectionLabel>
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+          <Tile
+            label="Current streak"
+            value={a.streak.current + (a.streak.current === 1 ? ' week' : ' weeks')}
+            hint={
+              a.streak.current > 0 && a.streak.currentFrom
+                ? '≥ ' + a.streak.minSessions + ' sessions a week, since ' + formatDate(a.streak.currentFrom)
+                : '≥ ' + a.streak.minSessions + ' sessions a week'
+            }
+            tone={a.streak.current > 0 && a.streak.current === a.streak.longest ? 'accent' : 'neutral'}
+            size="lg"
+          />
+          <Tile
+            label="Longest streak"
+            value={a.streak.longest + (a.streak.longest === 1 ? ' week' : ' weeks')}
+            hint={a.streak.longestFrom ? 'from ' + formatDate(a.streak.longestFrom) : undefined}
+            size="lg"
+          />
+          {a.streak.trailingPartial && (
+            <p className="col-span-2 self-center px-1 text-xs text-faint">
+              The export ends mid-week; that week is not counted against the streak.
+            </p>
+          )}
+        </div>
         <CalendarCard
           days={a.days}
           unit={unit}
