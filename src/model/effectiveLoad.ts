@@ -47,6 +47,13 @@ export type EnrichedSet = SetRecord & {
   canonicalName: string;
   effectiveLoadKg: number | null;
   loadType: LoadType;
+  /**
+   * The lifter's bodyweight at this set's date, for bodyweight-relative load
+   * types only -- null on a barbell set, so it cannot be read as part of the
+   * load. Carried so the UI can show "120 kg (80 bw + 40)" rather than a total
+   * that reads like plates.
+   */
+  bodyweightKg: number | null;
   /** False when the exercise's metadata is still an unconfirmed guess. */
   metaConfirmed: boolean;
 };
@@ -89,7 +96,53 @@ export function enrichSets(
       canonicalName: canonical,
       effectiveLoadKg: load,
       loadType: m.loadType,
+      bodyweightKg: isBodyweightRelative(m.loadType) ? bw : null,
       metaConfirmed: m.confirmed,
     };
   });
+}
+
+export function isBodyweightRelative(loadType: LoadType): boolean {
+  return loadType === 'bodyweight' || loadType === 'bodyweight-plus' || loadType === 'assisted';
+}
+
+/** The two halves of a bodyweight-relative load. `addedKg` is negative for assisted work. */
+export type LoadParts = {
+  loadType: 'bodyweight' | 'bodyweight-plus' | 'assisted';
+  totalKg: number;
+  bodyweightKg: number;
+  addedKg: number;
+};
+
+/**
+ * Split an effective load back into bodyweight and what was added, exactly
+ * rather than by subtraction: assisted work is clamped at zero in
+ * `effectiveLoad`, so total minus assistance is not the bodyweight, and on a
+ * plain `bodyweight` exercise the weight column is ignored entirely.
+ * Null for anything that is not bodyweight-relative or has no resolved load.
+ */
+export function loadParts(
+  s: Pick<EnrichedSet, 'loadType' | 'effectiveLoadKg' | 'bodyweightKg' | 'weightKg'>,
+): LoadParts | null {
+  if (s.effectiveLoadKg === null || s.bodyweightKg === null) return null;
+  switch (s.loadType) {
+    case 'bodyweight':
+      return { loadType: s.loadType, totalKg: s.effectiveLoadKg, bodyweightKg: s.bodyweightKg, addedKg: 0 };
+    case 'bodyweight-plus':
+      return {
+        loadType: s.loadType,
+        totalKg: s.effectiveLoadKg,
+        bodyweightKg: s.bodyweightKg,
+        addedKg: s.weightKg ?? 0,
+      };
+    case 'assisted':
+      return {
+        loadType: s.loadType,
+        totalKg: s.effectiveLoadKg,
+        bodyweightKg: s.bodyweightKg,
+        addedKg: -(s.weightKg ?? 0),
+      };
+    default:
+      return null;
+  }
 }

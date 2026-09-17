@@ -12,7 +12,7 @@ training split from Strong's auto-generated workout names, a weakness engine tha
 findings for statistical significance rather than always finding something, and a comparison
 against a second person's export that refuses the comparisons which do not actually mean
 anything. Bodyweight work is resolved through a bodyweight history, so a weighted pull up reads
-as bodyweight plus the belt rather than as the belt alone.
+as bodyweight plus the belt rather than as the belt alone — and is shown that way, `120 kg (80 bw + 40)`.
 
 No backend, no account, no telemetry — there is not a single network call in `src/`.
 
@@ -140,7 +140,7 @@ import from `src/meta/**` or `src/store/**`, or every keystroke in the tagging t
 6,517 rows. And **`derive/` is pure**: every function is a plain `(sets, metaIndex) => T` with no
 React and no IO, which is what makes all of it trivially testable.
 
-**455 tests across 24 files.** The suites measured from the personal export skip automatically when
+**463 tests across 25 files.** The suites measured from the personal export skip automatically when
 it is absent, so a fresh clone is green. CI runs `typecheck`, `test` and `build` on every push and
 pull request, on a clean checkout — a green badge means a fresh clone is green too.
 

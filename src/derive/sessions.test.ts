@@ -78,6 +78,9 @@ describe('sessionDetail', () => {
     expect(d?.blocks[0]?.sets.map((s) => s.setOrder)).toEqual([1, 2]);
     // The bodyweight movement resolves through the resolver: bodyweight plus the belt.
     expect(d?.blocks[1]?.sets[1]?.effectiveLoadKg).toBe(85);
+    expect(d?.blocks[1]?.sets[1]?.bodyweightKg).toBe(80);
+    // A barbell set carries no bodyweight, so it cannot be read as load.
+    expect(d?.blocks[0]?.sets[0]?.bodyweightKg).toBeNull();
     expect(d?.exerciseCount).toBe(2);
     expect(d?.focus.label).toBe('Push / Pull');
   });

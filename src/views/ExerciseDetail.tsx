@@ -11,7 +11,7 @@ import { loadRepDensity, repDensity, setPositionProfile } from '../derive/profil
 import { cooccurrence } from '../derive/cooccurrence';
 import { records } from '../derive/records';
 import { RecordList } from './RecordList';
-import { formatDate, formatVolume, formatWeight } from '../format';
+import { formatDate, formatLoad, formatLoadSplit, formatVolume, formatWeight } from '../format';
 
 export function ExerciseDetail({
   name,
@@ -144,6 +144,13 @@ export function ExerciseDetail({
               </div>
               <div className="text-xs text-faint">
                 {bestDate ? 'set ' + formatDate(bestDate) : 'no estimable set'}
+                {summary.bestE1rmFrom?.parts && (
+                  <>
+                    {' '}
+                    &middot; from {formatLoad(summary.bestE1rmFrom.parts, summary.bestE1rmFrom.loadKg, unit, 1)}{' '}
+                    &times; {summary.bestE1rmFrom.reps}
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -155,7 +162,11 @@ export function ExerciseDetail({
               hint={summary.counts.warmup + ' warm-up'}
             />
             <Tile label="Volume" value={formatVolume(summary.volume.volumeKg, unit)} />
-            <Tile label="Heaviest" value={formatWeight(summary.heaviestKg, unit, 1)} />
+            <Tile
+              label="Heaviest"
+              value={formatWeight(summary.heaviestKg, unit, 1)}
+              hint={summary.heaviestParts ? formatLoadSplit(summary.heaviestParts, unit, 1) : undefined}
+            />
             <Tile label="First" value={formatDate(summary.firstDate)} />
             <Tile label="Last" value={formatDate(summary.lastDate)} />
           </div>

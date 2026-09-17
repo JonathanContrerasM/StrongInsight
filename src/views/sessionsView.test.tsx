@@ -115,6 +115,20 @@ describe('the Sessions tab', () => {
     expect(container.querySelector('[data-testid="lift"]')?.textContent).toBe(liftName);
   });
 
+  it('shows bodyweight and added load beside the total on a pull-up set', async () => {
+    await mount(<Sessions text={CSV} />);
+    const pull = [...container.querySelectorAll('tbody tr')].find((r) =>
+      r.textContent?.includes('Pull Up'),
+    ) as HTMLTableRowElement;
+    await act(async () => {
+      pull.click();
+    });
+    // The fixture's pull ups are bodyweight-plus, half at +0 and half loaded; the
+    // store's default bodyweight is 80 kg.
+    expect(text()).toMatch(/80\.0 kg\s*\(80\.0 bw \+ 0\.0\)|\(80\.0 bw \+ \d+\.0\)/);
+    expect(text()).toContain('Bodyweight assumed at 80 kg');
+  });
+
   it('tags each session with what it trained, and filters on the tag', async () => {
     await mount(<Sessions text={CSV} />);
     const rows = [...container.querySelectorAll('tbody tr')];
