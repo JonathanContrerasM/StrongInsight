@@ -1,4 +1,4 @@
-import type { EnrichedSet } from '../model/effectiveLoad';
+import { loadParts, type EnrichedSet, type LoadParts } from '../model/effectiveLoad';
 import { byExercise, e1rm } from './index';
 import { bucketKey, bucketRange, type Granularity, type WeekStart } from './buckets';
 
@@ -37,6 +37,8 @@ export type RecordEvent = {
   previous: number;
   /** For reps-at-load: the load the reps were done at. */
   loadKg?: number;
+  /** Bodyweight and added load of the record's set, on a bodyweight-relative lift. */
+  parts: LoadParts | null;
   /**
    * True on a load or e1RM record of a bodyweight-relative movement, where the
    * effective load moves with the bodyweight history. It is still a record by
@@ -148,6 +150,7 @@ export function records(sets: EnrichedSet[]): RecordEvent[] {
           date: session.date,
           value: e1rmHit.value,
           previous: best.e1rm as number,
+          parts: loadParts(e1rmHit.set),
           bodyweightDriven: isBodyweightRelative(e1rmHit.set),
         });
       }
@@ -161,6 +164,7 @@ export function records(sets: EnrichedSet[]): RecordEvent[] {
           date: session.date,
           value: loadHit.value,
           previous: best.load as number,
+          parts: loadParts(loadHit.set),
           bodyweightDriven: isBodyweightRelative(loadHit.set),
         });
       }
@@ -175,6 +179,7 @@ export function records(sets: EnrichedSet[]): RecordEvent[] {
           value: repsHit.value,
           previous: repsHit.prev,
           loadKg: repsHit.load,
+          parts: loadParts(repsHit.set),
           bodyweightDriven: false,
         });
       }

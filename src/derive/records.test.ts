@@ -86,6 +86,7 @@ describe('records', () => {
     const load = r.find((e) => e.kind === 'load');
     expect(load?.value).toBe(82);
     expect(load?.bodyweightDriven).toBe(true);
+    expect(load?.parts).toEqual({ loadType: 'bodyweight-plus', totalKg: 82, bodyweightKg: 82, addedKg: 0 });
   });
 
   it('filters by exercise and buckets by month including empty months', () => {

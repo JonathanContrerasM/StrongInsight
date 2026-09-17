@@ -8,8 +8,8 @@ import { FocusBadges } from './FocusBadges';
 import { FOCUS_GROUPS, FOCUS_LABEL } from '../derive/focus';
 import { NotEnoughData } from '../charts/parts';
 import { Badge, Card, SectionLabel, Tile } from '../ui/primitives';
-import { formatDate, formatDuration, formatVolume, formatWeight } from '../format';
-import type { EnrichedSet } from '../model/effectiveLoad';
+import { formatDate, formatDuration, formatLoadSplit, formatVolume, formatWeight } from '../format';
+import { isBodyweightRelative, loadParts, type EnrichedSet } from '../model/effectiveLoad';
 import type { WeightUnit } from '../model/types';
 
 /**
@@ -198,6 +198,12 @@ export function SessionDetail({
               }
             >
               <SetTable sets={block.sets} unit={unit} recordsBySet={recordsBySet} />
+              {data.bodyweightAt.isFallback && block.sets.some((s) => isBodyweightRelative(s.loadType)) && (
+                <p className="mt-2 text-xs text-faint">
+                  Bodyweight assumed at {data.settings.defaultBodyweightKg} kg throughout. Add entries
+                  in Settings to make these loads real.
+                </p>
+              )}
             </Card>
           );
         })}
@@ -224,9 +230,6 @@ function SetTable({
   const anyRest = sets.some((s) => s.restAfterSec !== null);
   const anySeconds = sets.some((s) => (s.seconds ?? 0) > 0);
   const anyNotes = sets.some((s) => s.notes.length > 0);
-  const bodyweightRelative = sets.some(
-    (s) => s.loadType === 'bodyweight' || s.loadType === 'bodyweight-plus' || s.loadType === 'assisted',
-  );
 
   return (
     <div className="overflow-x-auto">
@@ -262,7 +265,7 @@ function SetTable({
                   </span>
                 </td>
                 <td className="num py-1.5 pr-3 text-right">
-                  <LoadCell set={s} unit={unit} bodyweightRelative={bodyweightRelative} />
+                  <LoadCell set={s} unit={unit} />
                 </td>
                 <td className="num py-1.5 pr-3 text-right">{s.reps ?? '-'}</td>
                 {anySeconds && (
@@ -291,19 +294,11 @@ function SetTable({
 }
 
 /**
- * Effective load, with the bodyweight component made visible on movements
- * where it is most of the number: "85 kg" on a pull up is only honest next to
- * the "+5" that was actually logged.
+ * Effective load with its bodyweight split beside it: "85.0 kg (80.0 bw + 5.0)".
+ * On a pull up the total alone reads like plates, and the "+5" alone hides
+ * that most of the load is the lifter.
  */
-function LoadCell({
-  set: s,
-  unit,
-  bodyweightRelative,
-}: {
-  set: EnrichedSet;
-  unit: WeightUnit;
-  bodyweightRelative: boolean;
-}) {
+function LoadCell({ set: s, unit }: { set: EnrichedSet; unit: WeightUnit }) {
   if (s.isUnloaded) {
     return (
       <span className="text-faint" title="Logged at weight 0 on an external-load exercise">
@@ -312,19 +307,14 @@ function LoadCell({
     );
   }
   if (s.effectiveLoadKg === null) return <span className="text-faint">-</span>;
-  const added = s.weightKg ?? 0;
+  const parts = loadParts(s);
+  if (parts === null) return <span>{formatWeight(s.effectiveLoadKg, unit, 1)}</span>;
   return (
     <span>
-      {formatWeight(s.effectiveLoadKg, unit, 1)}
-      {bodyweightRelative && (
-        <span className="ml-1 text-xs text-faint">
-          {s.loadType === 'assisted'
-            ? '(-' + formatWeight(added, unit, 0) + ')'
-            : added > 0
-              ? '(+' + formatWeight(added, unit, 0) + ')'
-              : '(bw)'}
-        </span>
-      )}
+      {formatWeight(parts.totalKg, unit, 1)}
+      <span className="ml-1 text-xs text-faint">
+        ({formatLoadSplit(parts, unit, 1)})
+      </span>
     </span>
   );
 }

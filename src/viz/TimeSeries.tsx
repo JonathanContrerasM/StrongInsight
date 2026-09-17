@@ -17,7 +17,7 @@ import {
 import { ChartFrame, HoverLayer } from '../charts/ChartFrame';
 import { AxisLeft, NotEnoughData, Tooltip, useTooltip } from '../charts/parts';
 import { bandScale, linearScale, timeScale } from '../charts/scale';
-import { formatDate, formatVolume, formatWeight, toDisplayWeight } from '../format';
+import { formatDate, formatLoad, formatVolume, formatWeight, toDisplayWeight } from '../format';
 import type { WeightUnit } from '../model/types';
 
 /** Gaps longer than this break the progression line rather than being bridged. */
@@ -294,7 +294,7 @@ export function ProgressionChart({
                       )}
                       {p.heaviestKg !== null && (
                         <div className="text-dim">
-                          Heaviest {formatWeight(p.heaviestKg, unit, 1)}
+                          Heaviest {formatLoad(p.heaviestParts, p.heaviestKg, unit, 1)}
                         </div>
                       )}
                       {p.modalReps !== null && (
@@ -659,7 +659,7 @@ export function SessionPeaksChart({
             <div className="space-y-0.5">
               <div className="font-medium">{formatDate(p.date)}</div>
               <div className="text-dim">
-                Heaviest {p.heaviestKg === null ? 'n/a' : formatWeight(p.heaviestKg, unit, 1)}
+                Heaviest {p.heaviestKg === null ? 'n/a' : formatLoad(p.heaviestParts, p.heaviestKg, unit, 1)}
               </div>
               <div className="text-dim">Volume {formatVolume(p.volumeKg, unit)}</div>
               <div className="text-dim">

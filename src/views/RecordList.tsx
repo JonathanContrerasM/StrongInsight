@@ -1,6 +1,6 @@
 import type { RecordEvent } from '../derive/records';
 import type { WeightUnit } from '../model/types';
-import { formatDate, formatWeight } from '../format';
+import { formatDate, formatLoad, formatWeight } from '../format';
 import { Badge } from '../ui/primitives';
 import { KIND_LABEL } from '../viz/Records';
 
@@ -65,11 +65,20 @@ export function RecordList({
   );
 }
 
-/** "120 kg (was 115)", "e1RM 135 kg (was 130)", "8 reps at 100 kg (was 6)". */
+/**
+ * "120 kg (was 115)", "e1RM 135 kg (was 130)", "8 reps at 100 kg (was 6)" --
+ * and on a bodyweight-relative lift the load carries its split:
+ * "120.0 kg (80.0 bw + 40.0) (was 115.0 kg)".
+ */
 export function describe(e: RecordEvent, unit: WeightUnit): string {
   if (e.kind === 'reps-at-load') {
-    return e.value + ' reps at ' + formatWeight(e.loadKg ?? 0, unit, 0) + ' (was ' + e.previous + ')';
+    return (
+      e.value + ' reps at ' + formatLoad(e.parts, e.loadKg ?? 0, unit, 0) + ' (was ' + e.previous + ')'
+    );
   }
-  const prefix = e.kind === 'e1rm' ? 'e1RM ' : '';
-  return prefix + formatWeight(e.value, unit, 1) + ' (was ' + formatWeight(e.previous, unit, 1) + ')';
+  if (e.kind === 'e1rm') {
+    const from = e.parts ? ' from ' + formatLoad(e.parts, e.parts.totalKg, unit, 1) : '';
+    return 'e1RM ' + formatWeight(e.value, unit, 1) + from + ' (was ' + formatWeight(e.previous, unit, 1) + ')';
+  }
+  return formatLoad(e.parts, e.value, unit, 1) + ' (was ' + formatWeight(e.previous, unit, 1) + ')';
 }

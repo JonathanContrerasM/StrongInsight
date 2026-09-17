@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useWorkoutData } from '../store/useWorkoutData';
 import { summariseAll } from '../derive';
-import { formatDate, formatVolume, formatWeight } from '../format';
+import { formatDate, formatLoad, formatLoadSplit, formatVolume, formatWeight } from '../format';
 import { Badge, Checkbox, EmptyState, Field, Input, SectionLabel } from '../ui/primitives';
 import { Td, Th } from '../ui/table';
 
@@ -195,9 +195,17 @@ export function ExerciseList({ onSelectExercise }: { onSelectExercise?: (name: s
                   <Td align="right" mono>
                     {formatWeight(s.bestE1rmKg, unit, 0)}
                   </Td>
-                  <Td align="right" mono>
+                  <td className="num px-3 py-2 text-right text-ink">
                     {formatWeight(s.heaviestKg, unit, 0)}
-                  </Td>
+                    {s.heaviestParts && (
+                      <span
+                        className="ml-1 text-xs text-faint"
+                        title={formatLoad(s.heaviestParts, s.heaviestKg, unit, 1)}
+                      >
+                        {formatLoadSplit(s.heaviestParts, unit, 0)}
+                      </span>
+                    )}
+                  </td>
                   <Td mono muted>
                     {formatDate(s.firstDate)} - {formatDate(s.lastDate)}
                   </Td>
