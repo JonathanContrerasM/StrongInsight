@@ -11,7 +11,7 @@ import { Button, Field, Input, Notice } from '../ui/primitives';
 /**
  * A bodyweight history: import a measurements CSV, or type entries by hand.
  *
- * Extracted because two people now have one. Yours lives in Settings and
+ * Extracted because two people now have one. Yours lives on the Import tab and
  * persists through `useWorkoutData`; theirs lives on the Compare tab and
  * persists through the compare store. This component knows about neither -- it
  * is fully controlled, and `onChange` always receives the complete next array,

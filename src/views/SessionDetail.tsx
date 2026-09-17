@@ -201,7 +201,7 @@ export function SessionDetail({
               {data.bodyweightAt.isFallback && block.sets.some((s) => isBodyweightRelative(s.loadType)) && (
                 <p className="mt-2 text-xs text-faint">
                   Bodyweight assumed at {data.settings.defaultBodyweightKg} kg throughout. Add entries
-                  in Settings to make these loads real.
+                  on the Import tab to make these loads real.
                 </p>
               )}
             </Card>

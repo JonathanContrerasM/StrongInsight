@@ -2,13 +2,11 @@ import { useRef, useState, type ReactNode } from 'react';
 import { useWorkoutData } from '../store/useWorkoutData';
 import { exerciseMetaMapSchema } from '../model/schemas';
 import { formatDate } from '../format';
-import { BodyweightEditor } from './BodyweightEditor';
 import { ThemeControl } from '../ui/ThemeControl';
 import {
   Button,
   Card,
   Field,
-  Input,
   Notice,
   SectionLabel,
   Select,
@@ -19,11 +17,6 @@ export function SettingsView() {
   const s = data.settings;
   const [importError, setImportError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-
-  // The workout span is what imported readings get clipped to. Without an import
-  // there is nothing to clip against, and a decade of Apple Health history would
-  // land against no training at all.
-  const span = data.report.dateRange;
 
   const exportMeta = () => {
     const blob = new Blob([JSON.stringify(data.meta, null, 2)], { type: 'application/json' });
@@ -106,52 +99,6 @@ export function SettingsView() {
             </Notice>
           </div>
         )}
-      </Section>
-
-      <Section
-        label="Bodyweight"
-        title="Bodyweight history"
-        blurb="Bodyweight movements are logged at zero load, so without a recorded bodyweight every pull up, dip and push up computes to zero volume. Values are interpolated linearly between entries and clamped outside the recorded range."
-      >
-        {data.bodyweight.length === 0 && (
-          <div className="mt-3">
-            <Notice tone="warn" title="No bodyweight recorded yet.">
-              <p>
-                Bodyweight exercises currently fall back to the default of{' '}
-                <strong>{s.defaultBodyweightKg} kg</strong>. Add at least one real entry below to
-                make those numbers meaningful.
-              </p>
-              <div className="mt-2 w-40">
-                <Field label="Fallback default (kg)">
-                  <Input
-                    type="number"
-                    value={s.defaultBodyweightKg}
-                    onChange={(e) => {
-                      const v = Number(e.target.value);
-                      if (Number.isFinite(v) && v > 0) data.updateSettings({ defaultBodyweightKg: v });
-                    }}
-                  />
-                </Field>
-              </div>
-            </Notice>
-          </div>
-        )}
-
-        <div className="mt-4">
-          <BodyweightEditor
-            entries={data.bodyweight}
-            onChange={data.setBodyweight}
-            span={span}
-            unit={s.inputUnit}
-            spanHint={
-              <Notice tone="warn" title="Import your workouts first.">
-                Readings are clipped to the span your workouts cover, so there is nothing to clip
-                against yet. A measurements export typically reaches back years before training
-                started.
-              </Notice>
-            }
-          />
-        </div>
       </Section>
 
       <Section
