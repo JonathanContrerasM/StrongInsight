@@ -96,6 +96,28 @@ recovered clusters are unchanged and live where they belong, in the Structure pa
 
 ---
 
+## Three small honesty rules on the dashboard
+
+**Relative strength is hidden until a bodyweight is recorded.** e1RM divided by an *assumed*
+constant is the absolute chart scaled, and would show the same trend with false precision. Once a
+real history exists, `sessionBests` carries the bodyweight of the day — from the set on a
+bodyweight-relative lift, from the resolver on a barbell one — and the lift's page can plot the
+ratio, which is the series that does not rise when the lifter simply gains weight.
+
+**Frequency counts any working set; focus needs 20%.** They answer different questions. Focus
+(`derive/focus.ts`) says what a session was about, so one set of curls on a leg day must not tag
+it as pull. Frequency (`derive/frequency.ts`) says how often pull work happened at all, and for
+recovery that set counts. Days since a group was last trained are measured to the corpus's last
+session, never today, and a group is flagged only against its own typical gap — the app has no
+opinion about how often anyone should train anything.
+
+**A streak is not broken by the week the export was taken in.** `derive/streaks.ts` needs two
+sessions for a week to count (one a week is attendance, not training), and measures the current
+streak to the last *complete* week. A trailing partial week extends it only if it already
+qualifies on its own, and the dashboard says when one was left out.
+
+---
+
 ## Traps found in the data, and how the charts avoid them
 
 **A "fatigue curve" would have been backwards.** Mean load *rises* across set positions, because

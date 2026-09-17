@@ -8,6 +8,7 @@ import { cooccurrence, type CooccurrenceResult } from '../derive/cooccurrence';
 import { findings, type FindingSet } from '../derive/insights';
 import { records, recordsPerBucket, type RecordEvent } from '../derive/records';
 import { muscleFrequency } from '../derive/frequency';
+import { streaks } from '../derive/streaks';
 import type { ExerciseMeta } from '../model/types';
 import type { Granularity } from '../derive/buckets';
 
@@ -119,6 +120,8 @@ export function useAnalytics({ granularity, groupBy }: AnalyticsOptions) {
     [sets, lookup, settings.weekStartsOn],
   );
 
+  const streak = useMemo(() => streaks(sets, settings.weekStartsOn), [sets, settings.weekStartsOn]);
+
   /** Every personal record, ascending. Depends on load, hence on metadata. */
   const events: RecordEvent[] = useMemo(() => records(sets), [sets]);
 
@@ -163,6 +166,7 @@ export function useAnalytics({ granularity, groupBy }: AnalyticsOptions) {
     records: events,
     recordsMonthly,
     frequency,
+    streak,
     lookup,
   };
 }
