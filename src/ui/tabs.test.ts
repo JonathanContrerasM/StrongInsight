@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_ROUTE, TABS, hashForRoute, routeFromHash, tabEnabled, type Tab } from './tabs';
+import { DEFAULT_ROUTE, DETAIL_TABS, TABS, hashForRoute, routeFromHash, tabEnabled, type Tab } from './tabs';
 
 /**
  * The empty app used to navigate three different ways at once: Dashboard,
@@ -14,6 +14,7 @@ const DISABLED_WITHOUT_DATA: Tab[] = [
   'dashboard',
   'improvements',
   'exercises',
+  'sessions',
   'compare',
   'tray',
 ];
@@ -131,10 +132,18 @@ describe('routeFromHash with a lift', () => {
     expect(hashForRoute('exercises', 'Front/Back Lever')).toBe('#exercises/Front%2FBack%20Lever');
   });
 
+  it('addresses a session by workout id', () => {
+    expect(routeFromHash(hashForRoute('sessions', 'k3j4h5'))).toEqual({
+      tab: 'sessions',
+      detail: 'k3j4h5',
+    });
+    expect(routeFromHash('#sessions')).toEqual({ tab: 'sessions', detail: null });
+  });
+
   it('refuses a segment on any other tab', () => {
     // Not "that tab, segment ignored" -- the route is malformed and the caller
     // should fall back rather than half-honour it.
-    for (const t of TABS.filter((x) => x.id !== 'exercises')) {
+    for (const t of TABS.filter((x) => !DETAIL_TABS.has(x.id))) {
       expect(routeFromHash('#' + t.id + '/Bench%20Press'), t.id + ' took a segment').toBeNull();
     }
   });

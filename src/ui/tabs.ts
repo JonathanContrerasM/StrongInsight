@@ -14,6 +14,7 @@ export type Tab =
   | 'dashboard'
   | 'improvements'
   | 'exercises'
+  | 'sessions'
   | 'compare'
   | 'tray'
   | 'import'
@@ -31,6 +32,7 @@ export const TABS: readonly TabSpec[] = [
   { id: 'dashboard', label: 'Dashboard', needsData: true },
   { id: 'improvements', label: 'Improvements', needsData: true },
   { id: 'exercises', label: 'Exercises', needsData: true },
+  { id: 'sessions', label: 'Sessions', needsData: true },
   { id: 'compare', label: 'Compare', needsData: true },
   { id: 'tray', label: 'Tagging tray', needsData: true },
   { id: 'import', label: 'Import', needsData: false },
@@ -62,8 +64,16 @@ export const DISABLED_HINT = 'Import a CSV first';
 // A link to `#compare` with nothing imported still falls through the same guard
 // a click would, and lands on Import.
 
-/** A tab, plus -- on `exercises` only -- the lift being looked at. */
+/** A tab, plus -- on the tabs in DETAIL_TABS -- the lift or session being looked at. */
 export type Route = { tab: Tab; detail: string | null };
+
+/**
+ * The tabs that are a list with something openable behind it. `exercises`
+ * carries a lift name, `sessions` a workout id. One set, read by both hash
+ * functions, so adding a third detail-bearing tab is one line and cannot leave
+ * the parser and the printer disagreeing.
+ */
+export const DETAIL_TABS: ReadonlySet<Tab> = new Set<Tab>(['exercises', 'sessions']);
 
 /**
  * What a bare `/app.html` shows.
@@ -90,9 +100,9 @@ export function routeFromHash(hash: string): Route | null {
   if (!tab) return null;
   if (cut === -1) return { tab, detail: null };
 
-  // A detail segment is meaningful only on `exercises`. Anywhere else the route
+  // A detail segment is meaningful only on a list tab. Anywhere else the route
   // is malformed rather than "that tab, segment ignored".
-  if (tab !== 'exercises') return null;
+  if (!DETAIL_TABS.has(tab)) return null;
 
   const rest = raw.slice(cut + 1);
   if (rest === '') return { tab, detail: null };
@@ -107,6 +117,6 @@ export function routeFromHash(hash: string): Route | null {
 
 /** The inverse. Kept beside its partner so the two cannot drift. */
 export function hashForRoute(tab: Tab, detail: string | null = null): string {
-  if (tab === 'exercises' && detail) return '#exercises/' + encodeURIComponent(detail);
+  if (DETAIL_TABS.has(tab) && detail) return '#' + tab + '/' + encodeURIComponent(detail);
   return '#' + tab;
 }

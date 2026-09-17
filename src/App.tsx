@@ -8,6 +8,8 @@ import { Dashboard } from './views/Dashboard';
 import { Improvements } from './views/Improvements';
 import { Compare } from './views/Compare';
 import { ExerciseDetail } from './views/ExerciseDetail';
+import { SessionList } from './views/SessionList';
+import { SessionDetail } from './views/SessionDetail';
 import { ThemeControl } from './ui/ThemeControl';
 import { BrandMark, Wordmark } from './ui/BrandMark';
 import { Badge, Notice } from './ui/primitives';
@@ -87,6 +89,7 @@ function Shell() {
   };
 
   const openExercise = (name: string) => goTo('exercises', name);
+  const openSession = (id: string | null = null) => goTo('sessions', id);
   const select = (id: Tab) => goTo(id);
 
   /**
@@ -94,9 +97,9 @@ function Shell() {
    * opened the lift instead of adding another -- otherwise browser Back would
    * appear to go forward, back onto the lift you just left.
    */
-  const backToList = () => {
+  const backToList = (tab: Tab) => () => {
     if (hasPushed.current && typeof window !== 'undefined') window.history.back();
-    else goTo('exercises');
+    else goTo(tab);
   };
 
   const trayCount = data.unconfirmedCount;
@@ -222,7 +225,11 @@ function Shell() {
         )}
 
         {activeTab === 'dashboard' && (
-          <Dashboard onSelectExercise={openExercise} onGoToTray={() => select('tray')} />
+          <Dashboard
+            onSelectExercise={openExercise}
+            onSelectSession={openSession}
+            onGoToTray={() => select('tray')}
+          />
         )}
         {activeTab === 'improvements' && <Improvements onSelectExercise={openExercise} />}
         {activeTab === 'compare' && <Compare />}
@@ -230,11 +237,22 @@ function Shell() {
           (route.detail ? (
             <ExerciseDetail
               name={route.detail}
-              onBack={backToList}
-              onSelectExercise={(n) => goTo('exercises', n)}
+              onBack={backToList('exercises')}
+              onSelectExercise={openExercise}
             />
           ) : (
-            <ExerciseList onSelectExercise={(n) => goTo('exercises', n)} />
+            <ExerciseList onSelectExercise={openExercise} />
+          ))}
+        {activeTab === 'sessions' &&
+          (route.detail ? (
+            <SessionDetail
+              workoutId={route.detail}
+              onBack={backToList('sessions')}
+              onSelectSession={openSession}
+              onSelectExercise={openExercise}
+            />
+          ) : (
+            <SessionList onSelectSession={openSession} onSelectExercise={openExercise} />
           ))}
         {activeTab === 'tray' && <TaggingTray />}
         {activeTab === 'import' && <Import />}

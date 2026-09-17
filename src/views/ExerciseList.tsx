@@ -1,8 +1,9 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import { useWorkoutData } from '../store/useWorkoutData';
 import { summariseAll } from '../derive';
 import { formatDate, formatVolume, formatWeight } from '../format';
 import { Badge, Checkbox, EmptyState, Field, Input, SectionLabel } from '../ui/primitives';
+import { Td, Th } from '../ui/table';
 
 type SortKey = 'sets' | 'name' | 'volume' | 'last' | 'e1rm';
 
@@ -207,78 +208,5 @@ export function ExerciseList({ onSelectExercise }: { onSelectExercise?: (name: s
         </table>
       </div>
     </div>
-  );
-}
-
-function Th({
-  children,
-  sortKey,
-  sort,
-  onSort,
-  align = 'left',
-}: {
-  children: ReactNode;
-  sortKey?: SortKey;
-  sort?: SortKey;
-  onSort?: (k: SortKey) => void;
-  align?: 'left' | 'right';
-}) {
-  const active = sortKey !== undefined && sort === sortKey;
-  const alignCls = align === 'right' ? 'text-right' : 'text-left';
-  return (
-    <th
-      scope="col"
-      aria-sort={active ? 'descending' : undefined}
-      // Background and rule live on the cell, not the row: `border-collapse`
-      // paints collapsed borders with the table, so a `border-b` here tears off
-      // as rows scroll under. And rows hover to the same `bg-sunken`, so the
-      // header band has to be opaque in its own right.
-      className={
-        'bg-sunken px-3 py-2 font-medium shadow-[inset_0_-1px_0_var(--c-border)] ' + alignCls
-      }
-    >
-      {sortKey && onSort ? (
-        <button
-          type="button"
-          onClick={() => onSort(sortKey)}
-          className={
-            'hud-label inline-flex items-center gap-1 transition-colors hover:text-ink ' +
-            (active ? 'text-accent-ink' : '')
-          }
-        >
-          {children}
-          <span aria-hidden className={active ? 'opacity-100' : 'opacity-0'}>
-            &darr;
-          </span>
-        </button>
-      ) : (
-        <span className="hud-label">{children}</span>
-      )}
-    </th>
-  );
-}
-
-function Td({
-  children,
-  align = 'left',
-  mono = false,
-  muted = false,
-}: {
-  children: ReactNode;
-  align?: 'left' | 'right';
-  mono?: boolean;
-  muted?: boolean;
-}) {
-  return (
-    <td
-      className={
-        'px-3 py-2 ' +
-        (align === 'right' ? 'text-right ' : '') +
-        (mono ? 'num ' : '') +
-        (muted ? 'text-dim' : 'text-ink')
-      }
-    >
-      {children}
-    </td>
   );
 }
