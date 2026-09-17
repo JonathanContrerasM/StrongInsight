@@ -160,8 +160,6 @@ export function Dashboard({
           days={a.days}
           unit={unit}
           mode={calendarMode}
-          clusterOf={a.clusterOfDay}
-          clusterLabels={a.clusterLabels}
           onSelectDay={(d) => onSelectSession(d.workoutIds.length === 1 ? (d.workoutIds[0] ?? null) : null)}
           actions={
             <Toggle

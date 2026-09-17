@@ -115,6 +115,27 @@ describe('the Sessions tab', () => {
     expect(container.querySelector('[data-testid="lift"]')?.textContent).toBe(liftName);
   });
 
+  it('tags each session with what it trained, and filters on the tag', async () => {
+    await mount(<Sessions text={CSV} />);
+    const rows = [...container.querySelectorAll('tbody tr')];
+    // Every row has at least one focus badge, and on the push/pull/legs fixture exactly one.
+    for (const r of rows) {
+      const badges = r.querySelectorAll('td:nth-child(2) > span > span');
+      expect(badges.length).toBe(1);
+      expect(['Push', 'Pull', 'Legs']).toContain(badges[0]?.textContent);
+    }
+    const input = container.querySelector('input') as HTMLInputElement;
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+      setter?.call(input, 'push');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const filtered = [...container.querySelectorAll('tbody tr')];
+    expect(filtered.length).toBeGreaterThan(0);
+    expect(filtered.length).toBeLessThan(rows.length);
+    for (const r of filtered) expect(r.textContent).toContain('Push');
+  });
+
   it('follows the date-range scope, and "all" restores the full list by identity', async () => {
     let api: ReturnType<typeof useWorkoutData> | null = null;
     function Probe() {

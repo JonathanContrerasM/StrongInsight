@@ -66,6 +66,36 @@ Decisions worth keeping:
 
 ---
 
+## Session focus: what one session trained
+
+The recovered split answers "what routine am I running". It was also being used to answer "what
+was *this* session", by mapping a session's exercises to their clusters and taking the majority,
+and it was wrong often enough to be noticed: a push-and-pull session came out as
+"Legs (bodyweight)". Three reasons, all structural. Exercises the clustering had dropped as too
+rare were never placed, so a single surviving leg accessory could be half of what was counted;
+ties were broken by sort order; and for anyone who mixes push and pull the clusters were muddled
+before any session was judged.
+
+`src/derive/focus.ts` answers the second question directly. A session's **working sets** (warm-ups
+out, drop sets in) are counted by movement group — push, pull, legs, core — and every group holding
+at least **20%** of the assigned sets is a tag, so a session that is genuinely two things gets two
+tags and reads "Push / Pull"; push, pull and legs together is "Full body". Sets rather than
+exercises because sets are what a bodyweight calf raise and a three-set accessory actually differ
+in, and rather than volume because a plank has none.
+
+Group assignment reads the **pattern first and the muscle second**. `isolation` says nothing about
+direction — a bicep curl is pull work, a leg extension is leg work — so it and `carry` fall through
+to `muscleGroup(primaryMuscle)`. The cluster labeller counts patterns only, which is a second
+reason accessory-heavy sessions were mislabelled there. Sets on `full-body`, `neck` or an unknown
+muscle are counted as unassigned and shown as such; a focus that rests mostly on unconfirmed
+guesses carries the app-wide `unverified` marker.
+
+The calendar's split mode now colours a day by its leading group from a fixed four-colour legend.
+Two sessions on one day that lead with different groups stay neutral rather than being forced. The
+recovered clusters are unchanged and live where they belong, in the Structure panel.
+
+---
+
 ## Traps found in the data, and how the charts avoid them
 
 **A "fatigue curve" would have been backwards.** Mean load *rises* across set positions, because

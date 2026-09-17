@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { DayCell } from '../derive/series';
+import { FOCUS_GROUPS, FOCUS_LABEL, type FocusGroup } from '../derive/focus';
 import {
   quantileBinner,
   EMPTY_FILL,
@@ -20,6 +21,9 @@ const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 export type CalendarMode = 'intensity' | 'split';
 
+/** Fixed slot per group, so Push is the same colour on every calendar ever drawn. */
+const focusColour = (g: FocusGroup) => categorical(FOCUS_GROUPS.indexOf(g));
+
 /**
  * GitHub-style training calendar, one band per year so two years of data never
  * force horizontal scrolling.
@@ -33,15 +37,11 @@ export function TrainingCalendar({
   days,
   unit,
   mode = 'intensity',
-  clusterOf,
-  clusterLabels,
   onSelectDay,
 }: {
   days: DayCell[];
   unit: WeightUnit;
   mode?: CalendarMode;
-  clusterOf?: (day: DayCell) => number | null;
-  clusterLabels?: string[];
   onSelectDay?: (day: DayCell) => void;
 }) {
   const { tip, show, hide } = useTooltip();
@@ -63,10 +63,9 @@ export function TrainingCalendar({
 
   const fillFor = (d: DayCell): string => {
     if (!d.hasWorkout) return EMPTY_FILL;
-    if (mode === 'split' && clusterOf) {
-      const c = clusterOf(d);
-      return c === null ? NEUTRAL_INK : categorical(c);
-    }
+    // Split mode colours a day by what its session actually trained (see
+    // derive/focus.ts), not by which recovered cluster its exercises fell in.
+    if (mode === 'split') return d.focus === null ? NEUTRAL_INK : focusColour(d.focus);
     if (d.volumeKg <= 0) return EMPTY_FILL;
     return binner(d.volumeKg);
   };
@@ -132,7 +131,7 @@ export function TrainingCalendar({
                         show(
                           e.clientX,
                           e.clientY,
-                          <CalendarTip day={d} unit={unit} clusterLabels={clusterLabels} clusterOf={clusterOf} />,
+                          <CalendarTip day={d} unit={unit} />,
                         )
                       }
                       onMouseLeave={hide}
@@ -172,22 +171,23 @@ export function TrainingCalendar({
         </div>
       ) : (
         <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-dim">
-          {(clusterLabels ?? []).map((l, i) => (
-            <span key={l + i} className="inline-flex items-center gap-1">
-              <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: categorical(i) }} />
-              {l}
+          {FOCUS_GROUPS.map((g) => (
+            <span key={g} className="inline-flex items-center gap-1">
+              <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: focusColour(g) }} />
+              {FOCUS_LABEL[g]}
             </span>
           ))}
           <span className="inline-flex items-center gap-1">
             <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: NEUTRAL_INK }} />
-            mixed
+            mixed or unknown
           </span>
         </div>
       )}
 
       <p className="text-xs text-dim">
-        Shades are quantiles of your own history, so a colour means &quot;busy for you&quot;, not an
-        absolute amount.
+        {mode === 'intensity'
+          ? 'Shades are quantiles of your own history, so a colour means "busy for you", not an absolute amount.'
+          : 'A day takes the colour of the group its working sets mostly hit. Two sessions that disagree, or a session nothing dominates, stay neutral.'}
       </p>
       <Tooltip state={tip} />
     </div>
@@ -200,17 +200,7 @@ function startOfDayMs(d: Date): number {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 }
 
-function CalendarTip({
-  day,
-  unit,
-  clusterLabels,
-  clusterOf,
-}: {
-  day: DayCell;
-  unit: WeightUnit;
-  clusterLabels?: string[];
-  clusterOf?: (d: DayCell) => number | null;
-}) {
+function CalendarTip({ day, unit }: { day: DayCell; unit: WeightUnit }) {
   if (!day.hasWorkout) {
     return (
       <div>
@@ -219,7 +209,6 @@ function CalendarTip({
       </div>
     );
   }
-  const cluster = clusterOf?.(day);
   return (
     <div className="space-y-0.5">
       <div className="font-medium">{formatDate(day.date)}</div>
@@ -227,9 +216,7 @@ function CalendarTip({
         {day.setCount} sets &middot; {formatVolume(day.volumeKg, unit)}
         {day.durationSec > 0 && <> &middot; {formatDuration(day.durationSec)}</>}
       </div>
-      {cluster !== null && cluster !== undefined && clusterLabels?.[cluster] && (
-        <div className="text-dim">Split: {clusterLabels[cluster]}</div>
-      )}
+      {day.focusLabel && <div className="text-dim">Focus: {day.focusLabel}</div>}
       <div className="text-dim">{day.exercises.slice(0, 6).join(', ')}
         {day.exercises.length > 6 ? ', ...' : ''}
       </div>
