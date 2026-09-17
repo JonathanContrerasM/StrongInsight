@@ -7,6 +7,7 @@ import { HabitHeatmap, MuscleHeatmap, type MuscleScale } from '../viz/Heatmaps';
 import { StackedVolume, BalanceChart } from '../viz/TimeSeries';
 import { RepHistogram } from '../viz/Distributions';
 import { RecordsChart } from '../viz/Records';
+import { FrequencyTable } from '../viz/Frequency';
 import { RecordList } from './RecordList';
 import { ChartCard, Toggle, UnverifiedChip } from '../charts/parts';
 import { Button, EmptyState, Notice, SectionLabel, Tile } from '../ui/primitives';
@@ -173,8 +174,32 @@ export function Dashboard({
         </div>
       </section>
 
-      <section>
+      <section className="space-y-4">
         <SectionLabel>Consistency</SectionLabel>
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+          <Tile
+            label="Current streak"
+            value={a.streak.current + (a.streak.current === 1 ? ' week' : ' weeks')}
+            hint={
+              a.streak.current > 0 && a.streak.currentFrom
+                ? '≥ ' + a.streak.minSessions + ' sessions a week, since ' + formatDate(a.streak.currentFrom)
+                : '≥ ' + a.streak.minSessions + ' sessions a week'
+            }
+            tone={a.streak.current > 0 && a.streak.current === a.streak.longest ? 'accent' : 'neutral'}
+            size="lg"
+          />
+          <Tile
+            label="Longest streak"
+            value={a.streak.longest + (a.streak.longest === 1 ? ' week' : ' weeks')}
+            hint={a.streak.longestFrom ? 'from ' + formatDate(a.streak.longestFrom) : undefined}
+            size="lg"
+          />
+          {a.streak.trailingPartial && (
+            <p className="col-span-2 self-center px-1 text-xs text-faint">
+              The export ends mid-week; that week is not counted against the streak.
+            </p>
+          )}
+        </div>
         <CalendarCard
           days={a.days}
           unit={unit}
@@ -311,7 +336,14 @@ export function Dashboard({
 
       <section>
         <SectionLabel>Habits</SectionLabel>
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+          <ChartCard
+            title="How often each group is trained"
+            subtitle="Push, pull, legs and core: sessions a week, the usual gap, and when it last came up."
+          >
+            <FrequencyTable rows={a.frequency} />
+          </ChartCard>
+
           <ChartCard
             title="Rep zones"
             subtitle="Every working set by rep count. Peaks are the schemes you actually run."
