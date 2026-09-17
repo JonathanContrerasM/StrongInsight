@@ -1,9 +1,14 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useWorkoutData } from '../store/useWorkoutData';
-import { ProgressionChart, LoadSplitChart, SessionPeaksChart } from '../viz/TimeSeries';
+import {
+  ProgressionChart,
+  LoadSplitChart,
+  SessionPeaksChart,
+  type ProgressionMetric,
+} from '../viz/TimeSeries';
 import { DensityHeatmap } from '../viz/Heatmaps';
 import { SetPositionChart, RepHistogram } from '../viz/Distributions';
-import { ChartCard, NotEnoughData } from '../charts/parts';
+import { ChartCard, NotEnoughData, Toggle } from '../charts/parts';
 import { Badge, Card, SectionLabel, Tile } from '../ui/primitives';
 import { summarise } from '../derive';
 import { sessionBests, smoothSessionBests, bodyweightVsAddedSeries } from '../derive/series';
@@ -39,7 +44,15 @@ export function ExerciseDetail({
   );
 
   const summary = useMemo(() => summarise(name, sets), [name, sets]);
-  const sessions = useMemo(() => sessionBests(sets), [sets]);
+  const sessions = useMemo(() => sessionBests(sets, data.bodyweightAt), [sets, data.bodyweightAt]);
+  const [metric, setMetric] = useState<ProgressionMetric>('absolute');
+  /**
+   * Relative strength against an ASSUMED bodyweight is the absolute chart
+   * divided by a constant -- same shape, false precision -- so the toggle is
+   * offered only once a real bodyweight is recorded.
+   */
+  const relativeAvailable = !data.bodyweightAt.isFallback;
+  const shownMetric: ProgressionMetric = relativeAvailable ? metric : 'absolute';
   const progression = useMemo(() => smoothSessionBests(sessions), [sessions]);
   const density = useMemo(() => loadRepDensity(sets), [sets]);
   const profile = useMemo(() => setPositionProfile(sets), [sets]);
@@ -83,6 +96,13 @@ export function ExerciseDetail({
       .sort((a, b) => b.sim - a.sim)
       .slice(0, 8);
   }, [data.scopedSets, data.meta, name]);
+
+  /** The best e1RM as a multiple of the bodyweight on the day it was set. */
+  const bestRelative = useMemo(() => {
+    if (!relativeAvailable || summary.bestE1rmKg === null) return null;
+    const best = sessions.find((b) => b.bestE1rmKg === summary.bestE1rmKg);
+    return best && best.bodyweightKg ? summary.bestE1rmKg / best.bodyweightKg : null;
+  }, [relativeAvailable, summary.bestE1rmKg, sessions]);
 
   const isBodyweightRelative =
     meta?.loadType === 'bodyweight' ||
@@ -144,6 +164,12 @@ export function ExerciseDetail({
               </div>
               <div className="text-xs text-faint">
                 {bestDate ? 'set ' + formatDate(bestDate) : 'no estimable set'}
+                {bestRelative !== null && (
+                  <>
+                    {' '}
+                    &middot; {bestRelative.toFixed(2)}&times; bodyweight
+                  </>
+                )}
                 {summary.bestE1rmFrom?.parts && (
                   <>
                     {' '}
@@ -186,10 +212,32 @@ export function ExerciseDetail({
 
         <ChartCard
           title="Strength progression"
-          subtitle="Estimated 1RM per session, smoothed so deload weeks do not read as regression."
+          subtitle={
+            shownMetric === 'relative'
+              ? 'Estimated 1RM as a multiple of your bodyweight on the day, smoothed. Gaining weight does not count as getting stronger here.'
+              : 'Estimated 1RM per session, smoothed so deload weeks do not read as regression.'
+          }
+          actions={
+            <span title={relativeAvailable ? undefined : 'Record a bodyweight on the Import tab to see relative strength'}>
+              <Toggle
+                value={shownMetric}
+                onChange={(v) => relativeAvailable && setMetric(v)}
+                label="Metric"
+                options={[
+                  { value: 'absolute', label: 'Absolute' },
+                  { value: 'relative', label: '× bodyweight' },
+                ]}
+              />
+            </span>
+          }
+          note={
+            relativeAvailable
+              ? undefined
+              : 'Relative strength needs a recorded bodyweight; against an assumed one it would be this chart divided by a constant.'
+          }
         >
           {/* Heaviest gets its own card below, so this one stays about capability. */}
-          <ProgressionChart points={progression} unit={unit} showHeaviest={false} />
+          <ProgressionChart points={progression} unit={unit} showHeaviest={false} metric={shownMetric} />
         </ChartCard>
 
         <ChartCard
