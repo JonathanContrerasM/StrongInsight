@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useWorkoutData } from '../store/useWorkoutData';
-import { useAnalytics } from '../store/useAnalytics';
 import { sessionSummaries } from '../derive/sessions';
 import { formatDate, formatDuration, formatVolume } from '../format';
-import { Badge, EmptyState, Field, Input, SectionLabel } from '../ui/primitives';
+import { EmptyState, Field, Input, SectionLabel } from '../ui/primitives';
 import { Td, Th } from '../ui/table';
+import { FocusBadges } from './FocusBadges';
 
-type SortKey = 'date' | 'volume' | 'sets' | 'duration';
+type SortKey = 'date' | 'focus' | 'volume' | 'sets' | 'duration';
 
 /**
  * Every workout, newest first. The Exercises tab answers "how is this lift
@@ -21,36 +21,27 @@ export function SessionList({
   onSelectExercise?: (name: string) => void;
 }) {
   const data = useWorkoutData();
-  const a = useAnalytics({ granularity: 'week', groupBy: 'muscle' });
   const [sort, setSort] = useState<SortKey>('date');
   const [filter, setFilter] = useState('');
 
+  const lookup = useMemo(() => (n: string) => data.meta[n], [data.meta]);
   const summaries = useMemo(
-    () => sessionSummaries(data.scopedSets, data.scopedWorkouts),
-    [data.scopedSets, data.scopedWorkouts],
+    () => sessionSummaries(data.scopedSets, data.scopedWorkouts, lookup),
+    [data.scopedSets, data.scopedWorkouts, lookup],
   );
-
-  /**
-   * Which recovered split group a session belongs to, via the same rule the
-   * calendar's split mode uses -- so the two never disagree about a day.
-   */
-  const dayByKey = useMemo(() => new Map(a.days.map((d) => [d.key, d])), [a.days]);
-  const clusterOf = (date: Date): string | null => {
-    const day = dayByKey.get(formatDate(date));
-    if (!day) return null;
-    const c = a.clusterOfDay(day);
-    return c === null ? null : (a.clusterLabels[c] ?? null);
-  };
 
   const rows = useMemo(() => {
     const q = filter.trim().toLowerCase();
     const out = summaries.filter((s) => {
       if (!q) return true;
       if (formatDate(s.date).includes(q)) return true;
+      if (s.focus.label.toLowerCase().includes(q)) return true;
       return s.exercises.some((e) => e.toLowerCase().includes(q));
     });
     out.sort((a, b) => {
       switch (sort) {
+        case 'focus':
+          return a.focus.label.localeCompare(b.focus.label) || b.date.getTime() - a.date.getTime();
         case 'volume':
           return b.volume.volumeKg - a.volume.volumeKg;
         case 'sets':
@@ -84,7 +75,7 @@ export function SessionList({
           <Input
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            placeholder="date or exercise"
+            placeholder="date, focus or exercise"
           />
         </Field>
         <p className="ml-auto pb-2 text-xs text-dim">
@@ -102,7 +93,9 @@ export function SessionList({
               <Th sortKey="date" sort={sort} onSort={setSort}>
                 Date
               </Th>
-              <Th>Split</Th>
+              <Th sortKey="focus" sort={sort} onSort={setSort}>
+                Focus
+              </Th>
               <Th>Exercises</Th>
               <Th sortKey="sets" sort={sort} onSort={setSort} align="right">
                 Sets
@@ -118,7 +111,6 @@ export function SessionList({
           <tbody className="divide-y divide-line">
             {rows.map((s) => {
               const pct = maxVolume > 0 ? (s.volume.volumeKg / maxVolume) * 100 : 0;
-              const cluster = clusterOf(s.date);
               return (
                 <tr
                   key={s.workoutId}
@@ -135,7 +127,7 @@ export function SessionList({
                     </div>
                   </td>
                   <td className="px-3 py-2">
-                    {cluster ? <Badge tone="accent">{cluster}</Badge> : <span className="text-faint">-</span>}
+                    <FocusBadges focus={s.focus} />
                   </td>
                   <td className="max-w-md px-3 py-2">
                     <div className="flex flex-wrap gap-x-2 gap-y-0.5">

@@ -4,6 +4,8 @@ import { sessionDetail, sessionSummaries } from '../derive/sessions';
 import { e1rm } from '../derive';
 import { records, type RecordEvent } from '../derive/records';
 import { describe as describeRecord } from './RecordList';
+import { FocusBadges } from './FocusBadges';
+import { FOCUS_GROUPS, FOCUS_LABEL } from '../derive/focus';
 import { NotEnoughData } from '../charts/parts';
 import { Badge, Card, SectionLabel, Tile } from '../ui/primitives';
 import { formatDate, formatDuration, formatVolume, formatWeight } from '../format';
@@ -30,9 +32,10 @@ export function SessionDetail({
   const data = useWorkoutData();
   const unit = data.settings.displayUnit;
 
+  const lookup = useMemo(() => (n: string) => data.meta[n], [data.meta]);
   const session = useMemo(
-    () => sessionDetail(data.sets, data.workouts, workoutId),
-    [data.sets, data.workouts, workoutId],
+    () => sessionDetail(data.sets, data.workouts, workoutId, lookup),
+    [data.sets, data.workouts, workoutId, lookup],
   );
 
   /**
@@ -56,11 +59,11 @@ export function SessionDetail({
 
   /** Newest first, so "previous" is the later index. Neighbours follow the scope. */
   const neighbours = useMemo(() => {
-    const all = sessionSummaries(data.scopedSets, data.scopedWorkouts);
+    const all = sessionSummaries(data.scopedSets, data.scopedWorkouts, lookup);
     const i = all.findIndex((s) => s.workoutId === workoutId);
     if (i < 0) return { prev: null, next: null };
     return { prev: all[i + 1] ?? null, next: all[i - 1] ?? null };
-  }, [data.scopedSets, data.scopedWorkouts, workoutId]);
+  }, [data.scopedSets, data.scopedWorkouts, workoutId, lookup]);
 
   if (session === null) {
     return (
@@ -99,6 +102,15 @@ export function SessionDetail({
                     &middot; <span title="Strong's auto-generated label, not a routine name">{session.name}</span>
                   </>
                 )}
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <FocusBadges focus={session.focus} />
+                <span className="num text-xs text-faint">
+                  {FOCUS_GROUPS.filter((g) => session.focus.bySets[g] > 0)
+                    .map((g) => FOCUS_LABEL[g].toLowerCase() + ' ' + session.focus.bySets[g])
+                    .join(' · ')}
+                  {session.focus.unassigned > 0 && ' · unassigned ' + session.focus.unassigned}
+                </span>
               </div>
             </div>
             <div className="flex gap-2">

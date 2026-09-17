@@ -12,6 +12,7 @@ import { sessionBests } from '../derive/series';
 import { segmentByGap } from '../derive/stats';
 import { volume } from '../derive';
 import { findings } from '../derive/insights';
+import { sessionSummaries } from '../derive/sessions';
 import { SAMPLE_FIXTURE } from '../test/fixtures';
 import type { ExerciseMeta } from '../model/types';
 
@@ -250,6 +251,15 @@ describe('sample fixture: derived metrics', () => {
     expect(clusterOf('Squat (Barbell)')).toBe(clusterOf('Leg Press'));
     expect(clusterOf('Pull Up')).toBe(clusterOf('Seated Row (Cable)'));
     expect(clusterOf('Bench Press (Barbell)')).toBe(clusterOf('Overhead Press (Barbell)'));
+  });
+
+  it('reads every session as exactly the push, pull or legs day it was built as', () => {
+    // The pull day carries a bicep curl (isolation -> biceps) and the leg day a
+    // bodyweight calf raise (isolation -> calves): the muscle fallback under test.
+    const labels = sessionSummaries(enriched, workouts, lookup).map((s) => s.focus.label);
+    expect(labels).toHaveLength(42);
+    for (const l of labels) expect(['Push', 'Pull', 'Legs']).toContain(l);
+    expect(new Set(labels).size).toBe(3);
   });
 
   it('breaks a progression series across the built-in layoff', () => {

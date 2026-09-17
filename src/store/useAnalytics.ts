@@ -34,14 +34,17 @@ export function useAnalytics({ granularity, groupBy }: AnalyticsOptions) {
     return m;
   }, [workouts]);
 
-  const days: DayCell[] = useMemo(() => calendarDays(sets, durations), [sets, durations]);
-
   /**
    * Metadata lookup that folds fine-grained muscles into groups when the caller
    * asked for muscle grouping. 20 muscles exceed what categorical colour can
    * carry; the muscle heatmap uses a sequential scale and so keeps full detail.
    */
   const lookup = useMemo(() => (name: string) => meta[name], [meta]);
+
+  const days: DayCell[] = useMemo(
+    () => calendarDays(sets, durations, lookup),
+    [sets, durations, lookup],
+  );
 
   const groupedLookup = useMemo(() => {
     return (name: string): ExerciseMeta | undefined => {
@@ -108,28 +111,6 @@ export function useAnalytics({ granularity, groupBy }: AnalyticsOptions) {
     [sessionKey],
   );
 
-  /** Which recovered group a given day's session belongs to, if any dominates. */
-  const clusterOfDay = useMemo(() => {
-    const memberToCluster = new Map<string, number>();
-    split.clusters.forEach((c, i) => c.members.forEach((m) => memberToCluster.set(m, i)));
-
-    return (day: DayCell): number | null => {
-      if (!day.hasWorkout) return null;
-      const counts = new Map<number, number>();
-      let placed = 0;
-      for (const name of day.exercises) {
-        const c = memberToCluster.get(name);
-        if (c === undefined) continue;
-        counts.set(c, (counts.get(c) ?? 0) + 1);
-        placed++;
-      }
-      if (placed === 0) return null;
-      const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
-      // Never force an assignment: a genuinely mixed session stays mixed.
-      return top && top[1] / placed >= 0.5 ? top[0] : null;
-    };
-  }, [split]);
-
   const unconfirmedSets = useMemo(() => sets.filter((s) => !s.metaConfirmed).length, [sets]);
 
   /** Every personal record, ascending. Depends on load, hence on metadata. */
@@ -171,8 +152,6 @@ export function useAnalytics({ granularity, groupBy }: AnalyticsOptions) {
     habit,
     reps,
     split,
-    clusterOfDay,
-    clusterLabels: split.clusters.map((c) => c.label),
     unconfirmedSets,
     insights,
     records: events,

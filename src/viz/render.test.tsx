@@ -152,6 +152,13 @@ describe('charts mount on the sample corpus', () => {
     expect(el.querySelectorAll('rect').length).toBeGreaterThan(100);
   });
 
+  it('training calendar in split mode, with the fixed focus legend', () => {
+    const days = calendarDays(sets, new Map(), lookup);
+    expect(days.filter((d) => d.focus !== null).length).toBeGreaterThan(10);
+    const el = render(<TrainingCalendar days={days} unit="kg" mode="split" />);
+    for (const l of ['Push', 'Pull', 'Legs', 'Core', 'mixed or unknown']) expect(el.textContent).toContain(l);
+  });
+
   it('co-occurrence matrix', () => {
     const el = render(<SplitMatrix result={cooccurrence(sets, lookup)} />);
     expect(el.querySelectorAll('rect').length).toBeGreaterThan(50);

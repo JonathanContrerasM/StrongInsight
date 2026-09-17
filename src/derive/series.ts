@@ -2,6 +2,8 @@ import type { EnrichedSet } from '../model/effectiveLoad';
 import { e1rm, volume, type VolumeResult } from './index';
 import { bucketBy, type Granularity, type WeekStart } from './buckets';
 import { linearTrend, rollingMedian, runningMax } from './stats';
+import type { MetaLookup } from './balance';
+import { sessionFocus, type FocusGroup } from './focus';
 
 /**
  * Time series over EnrichedSet[]. All pure.
@@ -266,6 +268,14 @@ export type DayCell = {
   volumeKg: number;
   exercises: string[];
   durationSec: number;
+  /**
+   * The day's leading focus group, for the calendar's split mode. Null on a
+   * rest day, when nothing could be assigned, or when two sessions on one day
+   * lead with different groups -- a mixed day is drawn as mixed, not forced.
+   */
+  focus: FocusGroup | null;
+  /** Every tag of every session that day, largest first, for the tooltip. */
+  focusLabel: string | null;
 };
 
 /**
@@ -277,6 +287,7 @@ export type DayCell = {
 export function calendarDays(
   sets: EnrichedSet[],
   durations: Map<string, number> = new Map(),
+  meta: MetaLookup = () => undefined,
 ): DayCell[] {
   if (sets.length === 0) return [];
 
@@ -306,6 +317,19 @@ export function calendarDays(
     let durationSec = 0;
     for (const id of workoutIds) durationSec += durations.get(id) ?? 0;
 
+    // One focus per session, then the day agrees or it does not.
+    let focus: FocusGroup | null = null;
+    let disagree = false;
+    const labels: string[] = [];
+    for (const id of workoutIds) {
+      const f = sessionFocus(items.filter((s) => s.workoutId === id), meta);
+      if (f.tags.length > 0) labels.push(f.label);
+      const lead = f.tags[0]?.group ?? null;
+      if (lead === null) continue;
+      if (focus === null) focus = lead;
+      else if (focus !== lead) disagree = true;
+    }
+
     out.push({
       date: new Date(cur.getTime()),
       key,
@@ -316,6 +340,8 @@ export function calendarDays(
       volumeKg: volume(items).volumeKg,
       exercises: [...new Set(items.map((s) => s.canonicalName))],
       durationSec,
+      focus: disagree ? null : focus,
+      focusLabel: labels.length > 0 ? labels.join(' + ') : null,
     });
     // setDate rather than +86400000: epoch arithmetic drops or duplicates a day
     // across a DST boundary, and this range spans several.
