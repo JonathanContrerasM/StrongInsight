@@ -223,7 +223,7 @@ export function ExerciseDetail({
               data.bodyweightAt.isFallback
                 ? 'No bodyweight recorded, so ' +
                   data.settings.defaultBodyweightKg +
-                  ' kg is assumed throughout. Add entries in Settings to make this real.'
+                  ' kg is assumed throughout. Add entries on the Import tab to make this real.'
                 : undefined
             }
           >

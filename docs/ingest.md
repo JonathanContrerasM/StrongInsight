@@ -170,8 +170,9 @@ load resolves per set:
 | `distance` | `null` |
 
 `bodyweightAt` interpolates linearly between recorded entries and clamps at both ends. With no
-entries recorded it returns a configurable fallback and the Settings view shows a first-run
-prompt, rather than silently computing zeros.
+entries recorded it returns a configurable fallback, and the Import tab says so in the export's
+own numbers -- "1,233 sets across 4 bodyweight exercises are counted at an assumed 80 kg" -- with
+a nudge on the Dashboard, rather than silently computing zeros.
 
 **The split is kept, and shown.** A correct effective load is still a bad number to read on its
 own: "120 kg" on a pull up looks like plates. So `enrichSets` also carries the resolved bodyweight
@@ -184,7 +185,9 @@ bodyweight is the fallback rather than a recorded one, the session view says so 
 
 ### Getting bodyweight in
 
-Entries can be typed by hand in Settings, or imported from Strong's **measurements export**
+Entries can be typed by hand on the Import tab, beside the workout export they resolve against
+(the Compare tab pairs the other person's file with theirs the same way), or imported there from
+Strong's **measurements export**
 (`src/ingest/parseBodyweightCsv.ts`). That file is the messiest input the app takes -- it is a
 long/tall table of every measurement Apple Health ever wrote, so it spans years before training
 started, mixes in kinds we do not model, and contains junk. The importer therefore:
