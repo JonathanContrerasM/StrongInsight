@@ -149,6 +149,42 @@ charts depend on **no** metadata, which is worth knowing when judging what survi
 
 ---
 
+## Records: when, not just what
+
+`src/derive/records.ts` turns the corpus into personal-record *events* — every time a lift's best
+was beaten, with a date and what it beat — rather than a current best per lift. Three kinds,
+because "a PR" means three things to a lifter and picking one on their behalf would hide the
+other two:
+
+| kind | beats | reads as |
+|---|---|---|
+| `load` | the heaviest effective load ever lifted | what went on the bar |
+| `e1rm` | the best estimated 1RM | capability |
+| `reps-at-load` | the most reps at a load *already lifted before* | the rep PR |
+
+Two rules keep the feed honest, and both are tested:
+
+- **An exercise's first session sets no records.** There is nothing to beat. Without the rule
+  every lift opens with three PRs, and a "records per month" chart becomes a chart of when
+  exercises were first tried.
+- **Ties are not records**, and a load never lifted before is a load record *or nothing* — not a
+  rep record too, or a heavier single would count twice.
+
+A session is evaluated against the state *before* it and absorbed afterwards, so two sets that
+both beat the old best yield one record, not two. Warm-ups and empty-bar sets are ineligible.
+
+On a bodyweight-relative movement the effective load moves with the bodyweight history, so a
+heavier lifter doing the same reps registers a load record. That is correct by the app's own load
+model — see the README on why bodyweight is real load — but such records are flagged
+`bodyweightDriven` and labelled in the UI, because "you got heavier" and "you got stronger"
+deserve different reactions.
+
+The monthly chart is spanned to the corpus, not to the last record. A lifter whose last PR was
+in March would otherwise get a chart that ends in March, and the dry months since are exactly what
+the chart is for.
+
+---
+
 ## The Improvements tab: refusing to confabulate
 
 A weakness engine finds weaknesses whether or not any exist. Search seven weekdays for the one
@@ -188,6 +224,13 @@ Two framing decisions worth keeping:
 
 Findings that are *facts* rather than inferences — a lift genuinely untouched for 119 days —
 carry `z: null` and bypass the gate explicitly, so the gate cannot quietly become decorative.
+
+**The PR-rate rule looks at the last twelve months only.** Over a whole history the rate of
+personal records *always* falls — a first year is nothing but records — and a rule that measured
+the whole span would tell every intermediate lifter they are drying up. Over the last year, a
+falling slope in records per month says something about now. Every record kind counts, since a
+lift can set rep PRs for months without a load PR and that is still progress, and the window is
+spanned to the corpus so the dry months after the last record are in it.
 
 ---
 

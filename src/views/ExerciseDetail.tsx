@@ -9,16 +9,20 @@ import { summarise } from '../derive';
 import { sessionBests, smoothSessionBests, bodyweightVsAddedSeries } from '../derive/series';
 import { loadRepDensity, repDensity, setPositionProfile } from '../derive/profile';
 import { cooccurrence } from '../derive/cooccurrence';
+import { records } from '../derive/records';
+import { RecordList } from './RecordList';
 import { formatDate, formatVolume, formatWeight } from '../format';
 
 export function ExerciseDetail({
   name,
   onBack,
   onSelectExercise,
+  onSelectSession,
 }: {
   name: string;
   onBack: () => void;
   onSelectExercise: (n: string) => void;
+  onSelectSession?: (workoutId: string) => void;
 }) {
   const data = useWorkoutData();
   const unit = data.settings.displayUnit;
@@ -42,20 +46,23 @@ export function ExerciseDetail({
   );
 
   /**
-   * When the best e1RM was actually hit. Read off the already-computed session
-   * series rather than adding anything to the derive layer -- a personal best
-   * with no date attached is trivia.
+   * This lift's records, newest first. `records` is per-exercise internally, so
+   * handing it only these sets is the same answer as filtering the corpus-wide
+   * list, for a fraction of the work.
+   */
+  const lifts = useMemo(() => records(sets).reverse(), [sets]);
+
+  /**
+   * When the best e1RM was actually hit: the newest e1RM record. Falls back to
+   * the first session when the best was set there, since a first session sets
+   * no records by rule.
    */
   const bestDate = useMemo(() => {
     if (summary.bestE1rmKg === null) return null;
-    let found: Date | null = null;
-    for (const s of sessions) {
-      if (s.bestE1rmKg !== null && s.bestE1rmKg === summary.bestE1rmKg) {
-        if (found === null || s.date < found) found = s.date;
-      }
-    }
-    return found;
-  }, [sessions, summary.bestE1rmKg]);
+    const rec = lifts.find((e) => e.kind === 'e1rm');
+    if (rec) return rec.date;
+    return summary.firstDate;
+  }, [lifts, summary.bestE1rmKg, summary.firstDate]);
 
   /** Partners come straight from the corpus-wide matrix; no new computation. */
   const partners = useMemo(() => {
@@ -165,6 +172,22 @@ export function ExerciseDetail({
           subtitle="What you peaked at each session, against how much total work that session carried."
         >
           <SessionPeaksChart points={sessions} unit={unit} />
+        </ChartCard>
+
+        <ChartCard
+          title="Records"
+          subtitle={
+            lifts.length === 0
+              ? 'None yet. A first session sets no records; there was nothing to beat.'
+              : lifts.length + ' records: a heavier load, a higher estimated 1RM, or more reps at a load already lifted.'
+          }
+        >
+          <RecordList
+            events={lifts}
+            unit={unit}
+            showExercise={false}
+            onSelectSession={onSelectSession}
+          />
         </ChartCard>
 
         {isBodyweightRelative && (

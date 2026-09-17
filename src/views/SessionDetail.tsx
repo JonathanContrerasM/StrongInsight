@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { useWorkoutData } from '../store/useWorkoutData';
 import { sessionDetail, sessionSummaries } from '../derive/sessions';
 import { e1rm } from '../derive';
+import { records, type RecordEvent } from '../derive/records';
+import { describe as describeRecord } from './RecordList';
 import { NotEnoughData } from '../charts/parts';
 import { Badge, Card, SectionLabel, Tile } from '../ui/primitives';
 import { formatDate, formatDuration, formatVolume, formatWeight } from '../format';
@@ -31,6 +33,25 @@ export function SessionDetail({
   const session = useMemo(
     () => sessionDetail(data.sets, data.workouts, workoutId),
     [data.sets, data.workouts, workoutId],
+  );
+
+  /**
+   * Records set in this session, by the set that did it. Records are relative
+   * to everything before, so this needs the whole corpus, not the session.
+   */
+  const recordsBySet = useMemo(() => {
+    const m = new Map<string, RecordEvent[]>();
+    for (const e of records(data.sets)) {
+      if (e.workoutId !== workoutId) continue;
+      const list = m.get(e.setId);
+      if (list) list.push(e);
+      else m.set(e.setId, [e]);
+    }
+    return m;
+  }, [data.sets, workoutId]);
+  const recordCount = useMemo(
+    () => [...recordsBySet.values()].reduce((n, l) => n + l.length, 0),
+    [recordsBySet],
   );
 
   /** Newest first, so "previous" is the later index. */
@@ -80,10 +101,18 @@ export function SessionDetail({
                 )}
               </div>
             </div>
-            <div className="rounded-lg border border-line bg-sunken px-4 py-2.5">
-              <div className="hud-label">Volume</div>
-              <div className="num text-3xl font-bold tracking-tight text-accent-ink">
-                {session.volume.volumeKg > 0 ? formatVolume(session.volume.volumeKg, unit) : '-'}
+            <div className="flex gap-2">
+              {recordCount > 0 && (
+                <div className="rounded-lg border border-line bg-sunken px-4 py-2.5">
+                  <div className="hud-label">Records</div>
+                  <div className="num text-3xl font-bold tracking-tight text-good">{recordCount}</div>
+                </div>
+              )}
+              <div className="rounded-lg border border-line bg-sunken px-4 py-2.5">
+                <div className="hud-label">Volume</div>
+                <div className="num text-3xl font-bold tracking-tight text-accent-ink">
+                  {session.volume.volumeKg > 0 ? formatVolume(session.volume.volumeKg, unit) : '-'}
+                </div>
               </div>
             </div>
           </div>
@@ -156,7 +185,7 @@ export function SessionDetail({
                 </span>
               }
             >
-              <SetTable sets={block.sets} unit={unit} />
+              <SetTable sets={block.sets} unit={unit} recordsBySet={recordsBySet} />
             </Card>
           );
         })}
@@ -170,7 +199,15 @@ export function SessionDetail({
  * value: most exports carry no RPE and no rest, and six empty columns would
  * bury the four that matter.
  */
-function SetTable({ sets, unit }: { sets: EnrichedSet[]; unit: WeightUnit }) {
+function SetTable({
+  sets,
+  unit,
+  recordsBySet,
+}: {
+  sets: EnrichedSet[];
+  unit: WeightUnit;
+  recordsBySet: Map<string, RecordEvent[]>;
+}) {
   const anyRpe = sets.some((s) => s.rpe !== null);
   const anyRest = sets.some((s) => s.restAfterSec !== null);
   const anySeconds = sets.some((s) => (s.seconds ?? 0) > 0);
@@ -197,6 +234,7 @@ function SetTable({ sets, unit }: { sets: EnrichedSet[]; unit: WeightUnit }) {
         <tbody className="divide-y divide-line">
           {sets.map((s) => {
             const est = e1rm(s);
+            const prs = recordsBySet.get(s.id) ?? [];
             return (
               <tr key={s.id} className={s.setKind === 'working' ? '' : 'text-dim'}>
                 <td className="num py-1.5 pr-3">
@@ -204,6 +242,11 @@ function SetTable({ sets, unit }: { sets: EnrichedSet[]; unit: WeightUnit }) {
                     {s.setOrder}
                     {s.setKind === 'warmup' && <Badge>warm-up</Badge>}
                     {s.setKind === 'dropset' && <Badge>drop</Badge>}
+                    {prs.map((e) => (
+                      <Badge key={e.id} tone="good" title={describeRecord(e, unit)}>
+                        PR
+                      </Badge>
+                    ))}
                   </span>
                 </td>
                 <td className="num py-1.5 pr-3 text-right">

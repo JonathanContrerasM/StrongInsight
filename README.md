@@ -64,9 +64,9 @@ rather than folded into an average.
 
 | | |
 |---|---|
-| **Dashboard** | Volume, sessions, sets and consistency; a training calendar with three states rather than two; the recovered split; volume over time stacked by muscle or pattern; balance plotted as log2 of the ratio; a muscle heatmap that defaults to row-relative. |
+| **Dashboard** | Volume, sessions, sets and consistency; a records rail with PRs per month, where an exercise's first session sets none; a training calendar with three states rather than two; the recovered split; volume over time stacked by muscle or pattern; balance plotted as log2 of the ratio; a muscle heatmap that defaults to row-relative. |
 | **Improvements** | Ranked findings across consistency, progression, and neglect and balance — each with its z-score, each gated. Three counters in the open: patterns tested, suppressed as too weak, and tested-and-fine. |
-| **Exercises** | Every lift in a sortable table, and behind any row the full history: estimated 1RM, per-session heaviest load and volume as two facets, a load/rep density map, and the set-position profile. |
+| **Exercises** | Every lift in a sortable table, and behind any row the full history: estimated 1RM, per-session heaviest load and volume as two facets, every record it ever set, a load/rep density map, and the set-position profile. |
 | **Sessions** | Every workout, newest first, with its recovered split group; behind any row (or any calendar day) the session as logged: every exercise in order, every set with its effective load, reps, e1RM, and RPE, rest and notes where they were recorded. |
 | **Compare** | A second person's export and bodyweight history, compared as rates rather than totals, with an explicit list of what was excluded and why. Stored on your device, removable in one click. |
 | **Tagging tray** | The queue of exercises whose metadata is still a guess, highest set count first. Anything unconfirmed renders with a visible `unverified` marker wherever it appears. |

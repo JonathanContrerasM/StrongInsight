@@ -25,6 +25,8 @@ import {
 } from './TimeSeries';
 import { RepHistogram, SetPositionChart } from './Distributions';
 import { Sparkline, WeekdayBars } from './Insights';
+import { RecordsChart } from './Records';
+import { records, recordsPerBucket } from '../derive/records';
 import { PairedMuscleShare, PairedProgression, PairedRepBars, RatioBars } from './Pairs';
 import { compareCorpora, type Comparison } from '../derive/compare';
 import { CsvDropzone } from '../ui/CsvDropzone';
@@ -208,6 +210,18 @@ describe('charts mount on the sample corpus', () => {
     // At least one bar actually changed sides -- a corpus balanced to the
     // millimetre would make this vacuous.
     expect(plain.some((above, i) => above !== flipped[i])).toBe(true);
+  });
+
+  it('records per month, stacked by kind', () => {
+    const buckets = recordsPerBucket(records(sets), { granularity: 'month' });
+    expect(buckets.length).toBeGreaterThan(3);
+    const el = render(<RecordsChart buckets={buckets} />);
+    expect(el.querySelectorAll('svg').length).toBe(1);
+    // At least one bar per non-empty month.
+    expect(el.querySelectorAll('rect').length).toBeGreaterThanOrEqual(
+      buckets.filter((b) => b.count > 0).length,
+    );
+    expect(el.textContent).toContain('heavier load');
   });
 
   it('rep histogram', () => {
@@ -421,6 +435,7 @@ describe('charts survive empty and tiny data', () => {
     );
     render(<LoadSplitChart points={bodyweightVsAddedSeries(EMPTY, { granularity: 'month' })} unit="kg" />);
     render(<SessionPeaksChart points={sessionBests(EMPTY)} unit="kg" />);
+    render(<RecordsChart buckets={recordsPerBucket(records(EMPTY), { granularity: 'month' })} />);
     expect(container).toBeTruthy();
   });
 

@@ -6,6 +6,7 @@ import { balanceSeries, balanceVerdict, volumeMatrix, type GroupBy } from '../de
 import { habitMap, repDensity, muscleGroup } from '../derive/profile';
 import { cooccurrence, type CooccurrenceResult } from '../derive/cooccurrence';
 import { findings, type FindingSet } from '../derive/insights';
+import { records, recordsPerBucket, type RecordEvent } from '../derive/records';
 import type { ExerciseMeta } from '../model/types';
 import type { Granularity } from '../derive/buckets';
 
@@ -130,6 +131,24 @@ export function useAnalytics({ granularity, groupBy }: AnalyticsOptions) {
 
   const unconfirmedSets = useMemo(() => sets.filter((s) => !s.metaConfirmed).length, [sets]);
 
+  /** Every personal record, ascending. Depends on load, hence on metadata. */
+  const events: RecordEvent[] = useMemo(() => records(sets), [sets]);
+
+  /** Monthly, spanned to the corpus so the dry months at the end are drawn. */
+  const recordsMonthly = useMemo(() => {
+    let first: Date | null = null;
+    let last: Date | null = null;
+    for (const s of sets) {
+      if (first === null || s.date < first) first = s.date;
+      if (last === null || s.date > last) last = s.date;
+    }
+    return recordsPerBucket(events, {
+      granularity: 'month',
+      weekStartsOn: settings.weekStartsOn,
+      span: first && last ? { from: first, to: last } : undefined,
+    });
+  }, [events, sets, settings.weekStartsOn]);
+
   /**
    * The weakness engine. Kept out of the `split` memo above deliberately: that
    * one is keyed on a session signature so tagging does not re-cluster, whereas
@@ -155,6 +174,8 @@ export function useAnalytics({ granularity, groupBy }: AnalyticsOptions) {
     clusterLabels: split.clusters.map((c) => c.label),
     unconfirmedSets,
     insights,
+    records: events,
+    recordsMonthly,
     lookup,
   };
 }
