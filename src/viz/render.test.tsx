@@ -235,6 +235,17 @@ describe('charts mount on the sample corpus', () => {
     expect(render(<RepHistogram bins={repDensity(sets)} />).querySelectorAll('svg').length).toBe(1);
   });
 
+  it('progression chart in relative mode', () => {
+    const pull = sets.filter((s) => s.canonicalName === 'Pull Up');
+    const el = render(
+      <ProgressionChart points={smoothSessionBests(sessionBests(pull))} unit="kg" metric="relative" />,
+    );
+    expect(el.querySelectorAll('path').length).toBeGreaterThan(0);
+    expect(el.textContent).toContain('bodyweight');
+    // A ratio axis, not a kilogram one.
+    expect(el.textContent).toMatch(/\d\.\d\d×/);
+  });
+
   it('per-session peaks chart', () => {
     // Squat is the stress case in the sample too: it carries empty-bar sets and
     // sits either side of the deliberate layoff the generator inserts.

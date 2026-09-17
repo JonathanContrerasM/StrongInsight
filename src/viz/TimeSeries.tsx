@@ -160,32 +160,56 @@ export function StackedVolume({
  * running best. Heaviest actual load is drawn separately because it is a
  * genuinely different question from estimated capability.
  */
+export type ProgressionMetric = 'absolute' | 'relative';
+
 export function ProgressionChart({
   points,
   unit,
   showHeaviest = true,
+  metric = 'absolute',
   height = 240,
 }: {
   points: SmoothedSessionBest[];
   unit: WeightUnit;
   showHeaviest?: boolean;
+  /** `relative` plots e1RM as a multiple of bodyweight; heaviest load is not drawn there. */
+  metric?: ProgressionMetric;
   height?: number;
 }) {
   const { tip, show, hide } = useTooltip();
+  const relative = metric === 'relative';
 
-  const withE1rm = points.filter((p) => p.bestE1rmKg !== null);
+  // One place decides which three series the chart draws, so the paths, the
+  // dots and the axis cannot disagree about the metric.
+  const best = (p: SmoothedSessionBest) => (relative ? p.relativeE1rm : p.bestE1rmKg);
+  const smoothed = (p: SmoothedSessionBest) => (relative ? p.smoothedRelative : p.smoothedE1rmKg);
+  const pr = (p: SmoothedSessionBest) => (relative ? p.prRelative : p.prE1rmKg);
+  // A ratio has no unit to convert.
+  const display = (v: number) => (relative ? v : toDisplayWeight(v, unit));
+  const drawHeaviest = showHeaviest && !relative;
+
+  const withE1rm = points.filter((p) => best(p) !== null);
   if (withE1rm.length < 2) {
-    return <NotEnoughData need="Needs at least 2 sessions with a resolvable load to chart progression." />;
+    return (
+      <NotEnoughData
+        need={
+          relative
+            ? 'Needs at least 2 sessions with a known bodyweight to chart relative strength.'
+            : 'Needs at least 2 sessions with a resolvable load to chart progression.'
+        }
+      />
+    );
   }
 
   const first = points[0]!.date;
   const last = points[points.length - 1]!.date;
   const values: number[] = [];
   for (const p of points) {
-    if (p.bestE1rmKg !== null) values.push(p.bestE1rmKg);
-    if (showHeaviest && p.heaviestKg !== null) values.push(p.heaviestKg);
+    const b = best(p);
+    if (b !== null) values.push(b);
+    if (drawHeaviest && p.heaviestKg !== null) values.push(p.heaviestKg);
   }
-  const maxV = toDisplayWeight(Math.max(...values), unit);
+  const maxV = display(Math.max(...values));
 
   // Break the line across layoffs rather than drawing an invented straight line.
   const segments = useMemo(() => segmentByGap(points, MAX_GAP_DAYS), [points]);
@@ -210,7 +234,7 @@ export function ProgressionChart({
                 continue;
               }
               const px = x(p.date);
-              const py = y(toDisplayWeight(v, unit));
+              const py = y(display(v));
               d += (pen ? 'L' : 'M') + px.toFixed(1) + ',' + py.toFixed(1) + ' ';
               pen = true;
             }
@@ -219,9 +243,13 @@ export function ProgressionChart({
 
           return (
             <>
-              <AxisLeft scale={y} innerW={innerW} format={(v) => String(Math.round(v))} />
+              <AxisLeft
+                scale={y}
+                innerW={innerW}
+                format={(v) => (relative ? v.toFixed(2) + '\u00d7' : String(Math.round(v)))}
+              />
 
-              {showHeaviest &&
+              {drawHeaviest &&
                 segments.map((seg, i) => (
                   <path
                     key={'h' + i}
@@ -232,22 +260,23 @@ export function ProgressionChart({
                   />
                 ))}
 
-              {points.map((p) =>
-                p.bestE1rmKg === null ? null : (
+              {points.map((p) => {
+                const b = best(p);
+                return b === null ? null : (
                   <circle
                     key={p.workoutId}
                     cx={x(p.date)}
-                    cy={y(toDisplayWeight(p.bestE1rmKg, unit))}
+                    cy={y(display(b))}
                     r={2}
                     fill={PRIMARY_SOFT}
                   />
-                ),
-              )}
+                );
+              })}
 
               {segments.map((seg, i) => (
                 <path
                   key={'s' + i}
-                  d={pathFor(seg.points, (p) => p.smoothedE1rmKg)}
+                  d={pathFor(seg.points, smoothed)}
                   fill="none"
                   stroke={PRIMARY}
                   strokeWidth={2}
@@ -257,7 +286,7 @@ export function ProgressionChart({
               {segments.map((seg, i) => (
                 <path
                   key={'p' + i}
-                  d={pathFor(seg.points, (p) => p.prE1rmKg)}
+                  d={pathFor(seg.points, pr)}
                   fill="none"
                   stroke={GOOD}
                   strokeWidth={1.5}
@@ -290,9 +319,15 @@ export function ProgressionChart({
                       {p.bestE1rmKg !== null && (
                         <div className="text-dim">
                           Best e1RM {formatWeight(p.bestE1rmKg, unit, 1)}
+                          {p.relativeE1rm !== null && (
+                            <> &middot; {p.relativeE1rm.toFixed(2)}&times; bodyweight</>
+                          )}
                         </div>
                       )}
-                      {p.heaviestKg !== null && (
+                      {relative && p.bodyweightKg !== null && (
+                        <div className="text-dim">Bodyweight {formatWeight(p.bodyweightKg, unit, 1)}</div>
+                      )}
+                      {!relative && p.heaviestKg !== null && (
                         <div className="text-dim">
                           Heaviest {formatLoad(p.heaviestParts, p.heaviestKg, unit, 1)}
                         </div>
@@ -315,10 +350,10 @@ export function ProgressionChart({
       </ChartFrame>
 
       <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-dim">
-        <Swatch color={PRIMARY_SOFT} label="session best e1RM" />
+        <Swatch color={PRIMARY_SOFT} label={relative ? 'session best e1RM ÷ bodyweight' : 'session best e1RM'} />
         <Swatch color={PRIMARY} label="rolling median (trend)" />
         <Swatch color={GOOD} label="personal best" dashed />
-        {showHeaviest && <Swatch color={MUTED} label="heaviest actual load" />}
+        {drawHeaviest && <Swatch color={MUTED} label="heaviest actual load" />}
       </div>
       <p className="mt-1 text-xs text-dim">
         Trend is a rolling <strong>median</strong> across sessions, so deload weeks do not drag it
