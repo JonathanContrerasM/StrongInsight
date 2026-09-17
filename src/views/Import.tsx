@@ -1,8 +1,10 @@
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useWorkoutData } from '../store/useWorkoutData';
 import { formatDate, formatDuration } from '../format';
-import { Badge, Card, Notice, SectionLabel, Tile, type Tone } from '../ui/primitives';
+import { isBodyweightRelative } from '../model/effectiveLoad';
+import { Badge, Card, Field, Input, Notice, SectionLabel, Tile, type Tone } from '../ui/primitives';
 import { CsvDropzone } from '../ui/CsvDropzone';
+import { BodyweightEditor } from './BodyweightEditor';
 
 export function Import() {
   const data = useWorkoutData();
@@ -27,6 +29,22 @@ export function Import() {
 
   const r = data.report;
   const hasImport = data.current !== null;
+
+  /**
+   * What the bodyweight history is FOR, in this export's own numbers. "Add your
+   * bodyweight" is a chore; "1,233 sets of Pull Up are counted at an assumed
+   * 80 kg" is a reason.
+   */
+  const needsBodyweight = useMemo(() => {
+    let sets = 0;
+    const names = new Set<string>();
+    for (const s of data.sets) {
+      if (!isBodyweightRelative(s.loadType)) continue;
+      sets++;
+      names.add(s.canonicalName);
+    }
+    return { sets, names: [...names].sort() };
+  }, [data.sets]);
   const blocked = data.sets.filter((s) => s.effectiveLoadKg === null && !s.isUnloaded).length;
   const unconfirmedSets = data.sets.filter((s) => !s.metaConfirmed).length;
 
@@ -113,8 +131,61 @@ export function Import() {
         </Notice>
       )}
 
+      {/*
+        * Bodyweight sits with the export it resolves against, the way the Compare
+        * tab already pairs the other person's file with theirs. It used to live
+        * in Settings, where a first-time user never saw that every pull up was
+        * being counted at an assumed 80 kg. Above the report, because it is the
+        * one action a new import asks for; the report is detail.
+        */}
       {hasImport && !data.parseError && (
         <div className="space-y-4">
+          <SectionLabel>Bodyweight</SectionLabel>
+          <Card
+            title="Your bodyweight"
+            subtitle="Bodyweight movements are logged at zero load, so without a recorded bodyweight every pull up, dip and push up computes to zero volume. Values are interpolated linearly between entries and clamped outside the recorded range."
+          >
+            {data.bodyweight.length === 0 &&
+              (needsBodyweight.sets > 0 ? (
+                <Notice tone="warn" title="No bodyweight recorded yet.">
+                  <p>
+                    <span className="num text-ink">{needsBodyweight.sets.toLocaleString()}</span>{' '}
+                    sets across {needsBodyweight.names.length} bodyweight{' '}
+                    {needsBodyweight.names.length === 1 ? 'exercise' : 'exercises'} (
+                    {needsBodyweight.names.slice(0, 4).join(', ')}
+                    {needsBodyweight.names.length > 4 ? ', …' : ''}) are counted at an assumed{' '}
+                    <strong>{data.settings.defaultBodyweightKg} kg</strong>. Import Strong&rsquo;s
+                    measurements export or add one entry below to make those loads real.
+                  </p>
+                  <div className="mt-2 w-40">
+                    <Field label="Assumed bodyweight (kg)">
+                      <Input
+                        type="number"
+                        value={data.settings.defaultBodyweightKg}
+                        onChange={(e) => {
+                          const v = Number(e.target.value);
+                          if (Number.isFinite(v) && v > 0) data.updateSettings({ defaultBodyweightKg: v });
+                        }}
+                      />
+                    </Field>
+                  </div>
+                </Notice>
+              ) : (
+                <p className="text-xs text-dim">
+                  Nothing in this export needs a bodyweight yet. Tag an exercise as bodyweight in
+                  the tray and it will.
+                </p>
+              ))}
+            <div className={data.bodyweight.length === 0 ? 'mt-4' : ''}>
+              <BodyweightEditor
+                entries={data.bodyweight}
+                onChange={data.setBodyweight}
+                span={r.dateRange}
+                unit={data.settings.inputUnit}
+              />
+            </div>
+          </Card>
+
           <SectionLabel>Import report</SectionLabel>
 
           <Card rail>

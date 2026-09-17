@@ -244,6 +244,7 @@ function Shell() {
             onSelectExercise={openExercise}
             onSelectSession={openSession}
             onGoToTray={() => select('tray')}
+            onGoToImport={() => select('import')}
           />
         )}
         {activeTab === 'improvements' && <Improvements onSelectExercise={openExercise} />}

@@ -9,7 +9,8 @@ import { RepHistogram } from '../viz/Distributions';
 import { RecordsChart } from '../viz/Records';
 import { RecordList } from './RecordList';
 import { ChartCard, Toggle, UnverifiedChip } from '../charts/parts';
-import { EmptyState, SectionLabel, Tile } from '../ui/primitives';
+import { Button, EmptyState, Notice, SectionLabel, Tile } from '../ui/primitives';
+import { isBodyweightRelative } from '../model/effectiveLoad';
 import { volume, setCounts, daysBetween } from '../derive';
 import { formatDate, formatVolume } from '../format';
 import type { Granularity } from '../derive/buckets';
@@ -23,11 +24,13 @@ export function Dashboard({
   onSelectExercise,
   onSelectSession,
   onGoToTray,
+  onGoToImport,
 }: {
   onSelectExercise: (name: string) => void;
   /** A workout id, or null for the sessions list -- a day logged as two sessions. */
   onSelectSession: (workoutId: string | null) => void;
   onGoToTray: () => void;
+  onGoToImport: () => void;
 }) {
   const data = useWorkoutData();
   const [granularity, setGranularity] = useState<Granularity>('week');
@@ -46,6 +49,10 @@ export function Dashboard({
   const counts = setCounts(a.sets);
   const trainedDays = a.days.filter((d) => d.hasWorkout).length;
   const exerciseCount = new Set(a.sets.map((s) => s.canonicalName)).size;
+  // The nudge for the one thing a new import asks for. Only when it matters:
+  // an export with no bodyweight movement has nothing to resolve.
+  const assumedBodyweight =
+    data.bodyweightAt.isFallback && data.sets.some((s) => isBodyweightRelative(s.loadType));
 
   // Recency is against the last session in the corpus, never the wall clock --
   // the same rule the insights engine follows, and the only one that reads
@@ -92,6 +99,18 @@ export function Dashboard({
             size="lg"
           />
         </div>
+        {assumedBodyweight && (
+          <div className="mt-3">
+            <Notice tone="warn" title={'Bodyweight movements are counted at an assumed ' + data.settings.defaultBodyweightKg + ' kg.'}>
+              <div className="flex flex-wrap items-center gap-3">
+                <span>Every pull up, dip and push up resolves against it until you record your own.</span>
+                <Button size="sm" onClick={onGoToImport}>
+                  Add your bodyweight
+                </Button>
+              </div>
+            </Notice>
+          </div>
+        )}
         <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 px-1 text-xs text-dim">
           <span>
             <span className="hud-label">Exercises</span>{' '}
