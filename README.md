@@ -12,7 +12,7 @@ training split from Strong's auto-generated workout names, a weakness engine tha
 findings for statistical significance rather than always finding something, and a comparison
 against a second person's export that refuses the comparisons which do not actually mean
 anything. Bodyweight work is resolved through a bodyweight history, so a weighted pull up reads
-as bodyweight plus the belt rather than as the belt alone.
+as bodyweight plus the belt rather than as the belt alone — and is shown that way, `120 kg (80 bw + 40)`.
 
 No backend, no account, no telemetry — there is not a single network call in `src/`.
 
@@ -64,13 +64,15 @@ rather than folded into an average.
 
 | | |
 |---|---|
-| **Dashboard** | Volume, sessions, sets and consistency; a training calendar with three states rather than two; the recovered split; volume over time stacked by muscle or pattern; balance plotted as log2 of the ratio; a muscle heatmap that defaults to row-relative. |
-| **Improvements** | Ranked findings across consistency, progression, and neglect and balance — each with its z-score, each gated. Three counters in the open: patterns tested, suppressed as too weak, and tested-and-fine. |
-| **Exercises** | Every lift in a sortable table, and behind any row the full history: estimated 1RM, per-session heaviest load and volume as two facets, a load/rep density map, and the set-position profile. |
+| **Dashboard** | Volume, sessions, sets and consistency; a records rail with PRs per month, where an exercise's first session sets none; a training calendar with three states rather than two; the recovered split; volume over time stacked by muscle or pattern; balance plotted as log2 of the ratio; a muscle heatmap that defaults to row-relative. |
+| **Improvements** | Ranked findings across consistency, progression, and neglect and balance — each with its z-score, each gated. A plateau is tested as a claim, not assumed from a slope near zero; what is going well is listed too, through the same gate. Three counters in the open: patterns tested, suppressed as too weak, and tested-and-fine. |
+| **Exercises** | Every lift in a sortable table, and behind any row the full history: estimated 1RM, per-session heaviest load and volume as two facets, every record it ever set, a load/rep density map, and the set-position profile. |
+| **Sessions** | Every workout, newest first, tagged with what it actually trained — one tag or several, judged from its own working sets rather than from the recovered split; behind any row (or any calendar day) the session as logged: every exercise in order, every set with its effective load, reps, e1RM, and RPE, rest and notes where they were recorded. |
 | **Compare** | A second person's export and bodyweight history, compared as rates rather than totals, with an explicit list of what was excluded and why. Stored on your device, removable in one click. |
 | **Tagging tray** | The queue of exercises whose metadata is still a guess, highest set count first. Anything unconfirmed renders with a visible `unverified` marker wherever it appears. |
 | **Import** | An ingest report rather than a spinner: row counts, the W/D split, every unrecognised token with its verbatim value and file line, and the traps found in your own data. |
 | **Settings** | Units, week start, bodyweight entries and measurements import, theme, metadata export/import, archive rollback, reset. |
+| **Range** | A 3 / 6 / 12 month / all switch in the header, counted back from your last session rather than from today, that every chart and every finding on the analytical tabs follows together. |
 
 <table>
 <tr>
@@ -138,7 +140,7 @@ import from `src/meta/**` or `src/store/**`, or every keystroke in the tagging t
 6,517 rows. And **`derive/` is pure**: every function is a plain `(sets, metaIndex) => T` with no
 React and no IO, which is what makes all of it trivially testable.
 
-**360 tests across 17 files.** The suites measured from the personal export skip automatically when
+**463 tests across 25 files.** The suites measured from the personal export skip automatically when
 it is absent, so a fresh clone is green. CI runs `typecheck`, `test` and `build` on every push and
 pull request, on a clean checkout — a green badge means a fresh clone is green too.
 

@@ -25,6 +25,8 @@ import {
 } from './TimeSeries';
 import { RepHistogram, SetPositionChart } from './Distributions';
 import { Sparkline, WeekdayBars } from './Insights';
+import { RecordsChart } from './Records';
+import { records, recordsPerBucket } from '../derive/records';
 import { PairedMuscleShare, PairedProgression, PairedRepBars, RatioBars } from './Pairs';
 import { compareCorpora, type Comparison } from '../derive/compare';
 import { CsvDropzone } from '../ui/CsvDropzone';
@@ -150,6 +152,13 @@ describe('charts mount on the sample corpus', () => {
     expect(el.querySelectorAll('rect').length).toBeGreaterThan(100);
   });
 
+  it('training calendar in split mode, with the fixed focus legend', () => {
+    const days = calendarDays(sets, new Map(), lookup);
+    expect(days.filter((d) => d.focus !== null).length).toBeGreaterThan(10);
+    const el = render(<TrainingCalendar days={days} unit="kg" mode="split" />);
+    for (const l of ['Push', 'Pull', 'Legs', 'Core', 'mixed or unknown']) expect(el.textContent).toContain(l);
+  });
+
   it('co-occurrence matrix', () => {
     const el = render(<SplitMatrix result={cooccurrence(sets, lookup)} />);
     expect(el.querySelectorAll('rect').length).toBeGreaterThan(50);
@@ -208,6 +217,18 @@ describe('charts mount on the sample corpus', () => {
     // At least one bar actually changed sides -- a corpus balanced to the
     // millimetre would make this vacuous.
     expect(plain.some((above, i) => above !== flipped[i])).toBe(true);
+  });
+
+  it('records per month, stacked by kind', () => {
+    const buckets = recordsPerBucket(records(sets), { granularity: 'month' });
+    expect(buckets.length).toBeGreaterThan(3);
+    const el = render(<RecordsChart buckets={buckets} />);
+    expect(el.querySelectorAll('svg').length).toBe(1);
+    // At least one bar per non-empty month.
+    expect(el.querySelectorAll('rect').length).toBeGreaterThanOrEqual(
+      buckets.filter((b) => b.count > 0).length,
+    );
+    expect(el.textContent).toContain('heavier load');
   });
 
   it('rep histogram', () => {
@@ -421,6 +442,7 @@ describe('charts survive empty and tiny data', () => {
     );
     render(<LoadSplitChart points={bodyweightVsAddedSeries(EMPTY, { granularity: 'month' })} unit="kg" />);
     render(<SessionPeaksChart points={sessionBests(EMPTY)} unit="kg" />);
+    render(<RecordsChart buckets={recordsPerBucket(records(EMPTY), { granularity: 'month' })} />);
     expect(container).toBeTruthy();
   });
 

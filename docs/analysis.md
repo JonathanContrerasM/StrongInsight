@@ -66,6 +66,36 @@ Decisions worth keeping:
 
 ---
 
+## Session focus: what one session trained
+
+The recovered split answers "what routine am I running". It was also being used to answer "what
+was *this* session", by mapping a session's exercises to their clusters and taking the majority,
+and it was wrong often enough to be noticed: a push-and-pull session came out as
+"Legs (bodyweight)". Three reasons, all structural. Exercises the clustering had dropped as too
+rare were never placed, so a single surviving leg accessory could be half of what was counted;
+ties were broken by sort order; and for anyone who mixes push and pull the clusters were muddled
+before any session was judged.
+
+`src/derive/focus.ts` answers the second question directly. A session's **working sets** (warm-ups
+out, drop sets in) are counted by movement group — push, pull, legs, core — and every group holding
+at least **20%** of the assigned sets is a tag, so a session that is genuinely two things gets two
+tags and reads "Push / Pull"; push, pull and legs together is "Full body". Sets rather than
+exercises because sets are what a bodyweight calf raise and a three-set accessory actually differ
+in, and rather than volume because a plank has none.
+
+Group assignment reads the **pattern first and the muscle second**. `isolation` says nothing about
+direction — a bicep curl is pull work, a leg extension is leg work — so it and `carry` fall through
+to `muscleGroup(primaryMuscle)`. The cluster labeller counts patterns only, which is a second
+reason accessory-heavy sessions were mislabelled there. Sets on `full-body`, `neck` or an unknown
+muscle are counted as unassigned and shown as such; a focus that rests mostly on unconfirmed
+guesses carries the app-wide `unverified` marker.
+
+The calendar's split mode now colours a day by its leading group from a fixed four-colour legend.
+Two sessions on one day that lead with different groups stay neutral rather than being forced. The
+recovered clusters are unchanged and live where they belong, in the Structure panel.
+
+---
+
 ## Traps found in the data, and how the charts avoid them
 
 **A "fatigue curve" would have been backwards.** Mean load *rises* across set positions, because
@@ -149,6 +179,42 @@ charts depend on **no** metadata, which is worth knowing when judging what survi
 
 ---
 
+## Records: when, not just what
+
+`src/derive/records.ts` turns the corpus into personal-record *events* — every time a lift's best
+was beaten, with a date and what it beat — rather than a current best per lift. Three kinds,
+because "a PR" means three things to a lifter and picking one on their behalf would hide the
+other two:
+
+| kind | beats | reads as |
+|---|---|---|
+| `load` | the heaviest effective load ever lifted | what went on the bar |
+| `e1rm` | the best estimated 1RM | capability |
+| `reps-at-load` | the most reps at a load *already lifted before* | the rep PR |
+
+Two rules keep the feed honest, and both are tested:
+
+- **An exercise's first session sets no records.** There is nothing to beat. Without the rule
+  every lift opens with three PRs, and a "records per month" chart becomes a chart of when
+  exercises were first tried.
+- **Ties are not records**, and a load never lifted before is a load record *or nothing* — not a
+  rep record too, or a heavier single would count twice.
+
+A session is evaluated against the state *before* it and absorbed afterwards, so two sets that
+both beat the old best yield one record, not two. Warm-ups and empty-bar sets are ineligible.
+
+On a bodyweight-relative movement the effective load moves with the bodyweight history, so a
+heavier lifter doing the same reps registers a load record. That is correct by the app's own load
+model — see the README on why bodyweight is real load — but such records are flagged
+`bodyweightDriven` and labelled in the UI, because "you got heavier" and "you got stronger"
+deserve different reactions.
+
+The monthly chart is spanned to the corpus, not to the last record. A lifter whose last PR was
+in March would otherwise get a chart that ends in March, and the dry months since are exactly what
+the chart is for.
+
+---
+
 ## The Improvements tab: refusing to confabulate
 
 A weakness engine finds weaknesses whether or not any exist. Search seven weekdays for the one
@@ -188,6 +254,31 @@ Two framing decisions worth keeping:
 
 Findings that are *facts* rather than inferences — a lift genuinely untouched for 119 days —
 carry `z: null` and bypass the gate explicitly, so the gate cannot quietly become decorative.
+
+**A plateau is a claim, and gets tested.** A slope that merely fails to be negative is what every
+lift looks like before there is evidence either way, so "stalled" is not "slope about zero". The
+rule asks whether the fitted gain over the observed span is *significantly smaller than a
+meaningful one* — 2.5% of the lift's estimated 1RM, one small plate a side over two months or more
+— and scores it as how many standard errors the slope sits below that minimum, through the same
+family-corrected gate as everything else. A slope that is negative but not provably so gets the
+same test, because flat is where most such lifts actually sit; only a *provably* falling lift is
+reported as going backwards. A lift with the identical e1RM in every session has no scatter to
+infer from and is reported as a fact. The synthetic fixture plants one of each shape — a steady
+climb and a tight plateau — and a test asserts the engine tells them apart while calling nothing
+on the lifts that merely jitter.
+
+**What is going well shares the gate.** A lift climbing at three sigma is as real as one falling at
+three sigma, and a page that can only ever accuse reads as a list of accusations. So a test that
+comes back fine may hand the collector the good-direction finding, and it is shown under *Going
+well* only if it would have survived as a weakness. Below the bar it is silently a pass: the
+counters keep their meaning, and the section cannot become the soft-focus version of the tab.
+
+**The PR-rate rule looks at the last twelve months only.** Over a whole history the rate of
+personal records *always* falls — a first year is nothing but records — and a rule that measured
+the whole span would tell every intermediate lifter they are drying up. Over the last year, a
+falling slope in records per month says something about now. Every record kind counts, since a
+lift can set rep PRs for months without a load PR and that is still progress, and the window is
+spanned to the corpus so the dry months after the last record are in it.
 
 ---
 
@@ -271,7 +362,8 @@ what keeps that harmless.
 
 ## Out of scope in this iteration
 
-Volume landmarks, body diagrams, DuckDB/SQL, any backend or sync. Linked brushing is limited to a date range; full crossfilter and
-re-clustering on a brushed subset are deliberately deferred — the latter is unstable across brush
-positions and reads as a bug. Where a decision would constrain later work, the code carries a
+Volume landmarks, body diagrams, DuckDB/SQL, any backend or sync. Linked filtering is limited to
+the header's date-range scope (see [Architecture](architecture.md#the-date-range-scope-sits-below-m5));
+full crossfilter is deferred, and the split *is* re-clustered on the scoped subset -- which is
+stable for a handful of fixed presets in a way it would not be for a free brush. Where a decision would constrain later work, the code carries a
 `// FUTURE:` comment rather than building ahead of scope.

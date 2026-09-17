@@ -6,18 +6,27 @@ import { SplitPanel } from '../viz/SplitMatrix';
 import { HabitHeatmap, MuscleHeatmap, type MuscleScale } from '../viz/Heatmaps';
 import { StackedVolume, BalanceChart } from '../viz/TimeSeries';
 import { RepHistogram } from '../viz/Distributions';
+import { RecordsChart } from '../viz/Records';
+import { RecordList } from './RecordList';
 import { ChartCard, Toggle, UnverifiedChip } from '../charts/parts';
 import { EmptyState, SectionLabel, Tile } from '../ui/primitives';
-import { volume, setCounts } from '../derive';
+import { volume, setCounts, daysBetween } from '../derive';
 import { formatDate, formatVolume } from '../format';
 import type { Granularity } from '../derive/buckets';
 import type { GroupBy } from '../derive/balance';
 
+/** "Recent" on the records rail, in days before the last session. */
+const RECENT_DAYS = 90;
+const RECENT_LIST = 10;
+
 export function Dashboard({
   onSelectExercise,
+  onSelectSession,
   onGoToTray,
 }: {
   onSelectExercise: (name: string) => void;
+  /** A workout id, or null for the sessions list -- a day logged as two sessions. */
+  onSelectSession: (workoutId: string | null) => void;
   onGoToTray: () => void;
 }) {
   const data = useWorkoutData();
@@ -36,6 +45,17 @@ export function Dashboard({
   const totals = volume(a.sets);
   const counts = setCounts(a.sets);
   const trainedDays = a.days.filter((d) => d.hasWorkout).length;
+  const exerciseCount = new Set(a.sets.map((s) => s.canonicalName)).size;
+
+  // Recency is against the last session in the corpus, never the wall clock --
+  // the same rule the insights engine follows, and the only one that reads
+  // sensibly against an export from three months ago.
+  const lastDay = a.days[a.days.length - 1]?.date ?? null;
+  const recentRecords = lastDay
+    ? a.records.filter((e) => daysBetween(e.date, lastDay) <= RECENT_DAYS)
+    : [];
+  const lastRecord = a.records[a.records.length - 1] ?? null;
+  const newestRecords = a.records.slice(-RECENT_LIST).reverse();
 
   return (
     <div className="space-y-8">
@@ -63,7 +83,7 @@ export function Dashboard({
             size="lg"
             tone="accent"
           />
-          <Tile label="Sessions" value={data.workouts.length.toLocaleString()} size="lg" />
+          <Tile label="Sessions" value={data.scopedWorkouts.length.toLocaleString()} size="lg" />
           <Tile label="Sets" value={counts.total.toLocaleString()} size="lg" />
           <Tile
             label="Consistency"
@@ -75,18 +95,62 @@ export function Dashboard({
         <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 px-1 text-xs text-dim">
           <span>
             <span className="hud-label">Exercises</span>{' '}
-            <span className="num text-ink">{data.observed.size.toLocaleString()}</span>
+            <span className="num text-ink">{exerciseCount.toLocaleString()}</span>
           </span>
           <span>
             <span className="hud-label">Range</span>{' '}
             <span className="num text-ink">
-              {data.report.dateRange
-                ? formatDate(data.report.dateRange.from) +
+              {a.days.length > 0
+                ? formatDate(a.days[0]?.date ?? null) +
                   ' → ' +
-                  formatDate(data.report.dateRange.to)
+                  formatDate(a.days[a.days.length - 1]?.date ?? null)
                 : '-'}
             </span>
+            {data.scope !== null && (
+              <span className="text-faint"> (last {data.scope} months)</span>
+            )}
           </span>
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <SectionLabel>Records</SectionLabel>
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+          <Tile
+            label={'Records, last ' + RECENT_DAYS + ' days'}
+            value={recentRecords.length.toLocaleString()}
+            hint={lastDay ? 'to ' + formatDate(lastDay) : undefined}
+            size="lg"
+            tone={recentRecords.length > 0 ? 'good' : 'neutral'}
+          />
+          <Tile label="Records, all time" value={a.records.length.toLocaleString()} size="lg" />
+          <Tile
+            label="Last record"
+            value={lastRecord ? formatDate(lastRecord.date) : '-'}
+            hint={lastRecord ? lastRecord.exercise : 'none yet'}
+            size="lg"
+            className="col-span-2"
+          />
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <ChartCard
+            title="Records per month"
+            subtitle="A new best load, a new estimated 1RM, or more reps at a load already lifted. An exercise's first session sets none."
+          >
+            <RecordsChart buckets={a.recordsMonthly} />
+          </ChartCard>
+          <ChartCard title="Most recent" subtitle="The newest records, and the sessions they were set in.">
+            {newestRecords.length === 0 ? (
+              <p className="text-xs text-dim">No records yet.</p>
+            ) : (
+              <RecordList
+                events={newestRecords}
+                unit={unit}
+                onSelectExercise={onSelectExercise}
+                onSelectSession={(id) => onSelectSession(id)}
+              />
+            )}
+          </ChartCard>
         </div>
       </section>
 
@@ -96,8 +160,7 @@ export function Dashboard({
           days={a.days}
           unit={unit}
           mode={calendarMode}
-          clusterOf={a.clusterOfDay}
-          clusterLabels={a.clusterLabels}
+          onSelectDay={(d) => onSelectSession(d.workoutIds.length === 1 ? (d.workoutIds[0] ?? null) : null)}
           actions={
             <Toggle
               value={calendarMode}

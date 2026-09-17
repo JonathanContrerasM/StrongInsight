@@ -5,6 +5,8 @@ import {
   bucketBy,
   startOfWeek,
   daysBetween,
+  monthsBefore,
+  scopeSets,
 } from './buckets';
 import {
   median,
@@ -41,6 +43,33 @@ function build(
 ): EnrichedSet[] {
   return enrich(parseCsv(makeCsv(rows)).sets, metaMap, BW);
 }
+
+// --- the date-range scope -----------------------------------------------------
+
+describe('scopeSets', () => {
+  const at = (iso: string) => ({ date: new Date(iso + 'T18:00:00') });
+
+  it('clamps the day when the target month is shorter', () => {
+    expect(monthsBefore(new Date(2024, 2, 31), 1)).toEqual(new Date(2024, 1, 29));
+    expect(monthsBefore(new Date(2024, 0, 15), 3)).toEqual(new Date(2023, 9, 15));
+  });
+
+  it('is anchored on the last session, not on today', () => {
+    const sets = [at('2023-01-10'), at('2023-06-10'), at('2023-09-09'), at('2023-09-10'), at('2023-12-10')];
+    // 3 months before 2023-12-10 is 2023-09-10, inclusive.
+    expect(scopeSets(sets, 3).map((s) => s.date.getMonth())).toEqual([8, 11]);
+    // 6 months back is 2023-06-10, and the cutoff is inclusive.
+    expect(scopeSets(sets, 6)).toHaveLength(4);
+    expect(scopeSets(sets, 12)).toHaveLength(5);
+  });
+
+  it('returns the input by identity for "all" and for an empty corpus', () => {
+    const sets = [at('2023-01-10')];
+    expect(scopeSets(sets, null)).toBe(sets);
+    const none: Array<{ date: Date }> = [];
+    expect(scopeSets(none, 3)).toBe(none);
+  });
+});
 
 // --- bucketing ----------------------------------------------------------------
 

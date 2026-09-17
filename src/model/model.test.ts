@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { effectiveLoad } from './effectiveLoad';
+import { effectiveLoad, loadParts } from './effectiveLoad';
 import {
   bodyweightAt,
   makeBodyweightResolver,
@@ -38,6 +38,38 @@ describe('effectiveLoad', () => {
 
   it('passes a null external weight through as unknown, not zero', () => {
     expect(effectiveLoad({ loadType: 'external', weightKg: null, bodyweightKg: bw })).toBeNull();
+  });
+});
+
+describe('loadParts', () => {
+  const at = (loadType: Parameters<typeof effectiveLoad>[0]['loadType'], weightKg: number | null, bw: number | null) => ({
+    loadType,
+    weightKg,
+    bodyweightKg: bw,
+    effectiveLoadKg: effectiveLoad({ loadType, weightKg, bodyweightKg: bw }),
+  });
+
+  it('splits the three bodyweight-relative types exactly', () => {
+    expect(loadParts(at('bodyweight', 0, 80))).toEqual({ loadType: 'bodyweight', totalKg: 80, bodyweightKg: 80, addedKg: 0 });
+    expect(loadParts(at('bodyweight-plus', 40, 80))).toEqual({ loadType: 'bodyweight-plus', totalKg: 120, bodyweightKg: 80, addedKg: 40 });
+    expect(loadParts(at('assisted', 20, 80))).toEqual({ loadType: 'assisted', totalKg: 60, bodyweightKg: 80, addedKg: -20 });
+  });
+
+  it('keeps the true bodyweight when assistance was clamped, which subtraction would not', () => {
+    const p = loadParts(at('assisted', 200, 80));
+    expect(p?.totalKg).toBe(0);
+    expect(p?.bodyweightKg).toBe(80);
+    expect(p?.addedKg).toBe(-200);
+  });
+
+  it('ignores a weight logged on a plain bodyweight exercise, as effectiveLoad does', () => {
+    expect(loadParts(at('bodyweight', 10, 80))?.addedKg).toBe(0);
+  });
+
+  it('is null for external and timed work, and without a bodyweight', () => {
+    expect(loadParts({ ...at('external', 100, 80), bodyweightKg: null })).toBeNull();
+    expect(loadParts(at('duration', 0, 80))).toBeNull();
+    expect(loadParts(at('bodyweight-plus', 40, null))).toBeNull();
   });
 });
 

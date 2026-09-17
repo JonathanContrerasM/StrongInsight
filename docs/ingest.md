@@ -173,6 +173,15 @@ load resolves per set:
 entries recorded it returns a configurable fallback and the Settings view shows a first-run
 prompt, rather than silently computing zeros.
 
+**The split is kept, and shown.** A correct effective load is still a bad number to read on its
+own: "120 kg" on a pull up looks like plates. So `enrichSets` also carries the resolved bodyweight
+on every bodyweight-relative set (`EnrichedSet.bodyweightKg`, null on a barbell set), and
+`loadParts()` splits a load back into the two halves exactly — not by subtraction, which the
+assisted clamp at zero would get wrong. Everywhere the set behind a number is known (the session
+table, heaviest tiles, chart tooltips, records, the exercises table) the total is printed with its
+split beside it: `120.0 kg (80.0 bw + 40.0)`, `80.0 kg (bw)`, `60.0 kg (80.0 bw − 20.0)`. When the
+bodyweight is the fallback rather than a recorded one, the session view says so under the block.
+
 ### Getting bodyweight in
 
 Entries can be typed by hand in Settings, or imported from Strong's **measurements export**
