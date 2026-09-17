@@ -51,6 +51,30 @@ New exercise names are auto-extended into the metadata map by one effect, with t
 3. **StrictMode double-invoke** — all IndexedDB writes for a key are serialised through
    `withLock(key, fn)`, and the merge is idempotent.
 
+### The date-range scope sits below M5
+
+```
+[M6] scopedSets = useMemo(scopeSets(sets, scope), [sets, scope])   <- filters by reference
+```
+
+The header's range control (3 / 6 / 12 months / all) is one piece of ephemeral provider state.
+It is a way of looking, not a fact about the data, so it is neither persisted nor in the URL and a
+reload shows everything again. `scopeSets` filters the enriched array -- it never re-parses or
+re-enriches -- and returns `sets` *by identity* for "all", so every memo keyed on the array keeps
+its cache when the range is cleared.
+
+Two decisions worth knowing:
+
+- **It is anchored on the last session, not on today.** The same rule the insights engine follows
+  for recency, and the only one that behaves against an export from three months ago: anchored on
+  the wall clock, "last 3 months" of such a file would be empty. Calendar months, day clamped, so
+  31 March minus one month is 28 February.
+- **Only the analytical tabs read it.** `useAnalytics` and the Exercises and Sessions views read
+  `scopedSets`; Import, the tagging tray and Compare read `sets`, because metadata, guessing and a
+  comparison against a whole second export are not things a date range should change. The control
+  is hidden on those tabs rather than disabled. A session opened by id still resolves from the full
+  corpus, so a link into it works whatever the range; its prev/next neighbours follow the range.
+
 ### Persistence: store the raw CSV, never the parsed result
 
 ```

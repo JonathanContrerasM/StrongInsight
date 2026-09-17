@@ -11,6 +11,7 @@ import { ExerciseDetail } from './views/ExerciseDetail';
 import { SessionList } from './views/SessionList';
 import { SessionDetail } from './views/SessionDetail';
 import { ThemeControl } from './ui/ThemeControl';
+import { ScopeControl } from './views/ScopeControl';
 import { BrandMark, Wordmark } from './ui/BrandMark';
 import { Badge, Notice } from './ui/primitives';
 import {
@@ -23,6 +24,9 @@ import {
   type Route,
   type Tab,
 } from './ui/tabs';
+
+/** The tabs the date range applies to. Import, the tray, Compare and Settings read the whole corpus. */
+const SCOPED_TABS: ReadonlySet<Tab> = new Set<Tab>(['dashboard', 'improvements', 'exercises', 'sessions']);
 
 function Shell() {
   const data = useWorkoutData();
@@ -104,6 +108,14 @@ function Shell() {
 
   const trayCount = data.unconfirmedCount;
 
+  /**
+   * The date range applies to the analytical tabs only. It is hidden, not
+   * disabled, elsewhere: a range control on the Import page would imply the
+   * import itself could be scoped.
+   */
+  const scoped = hasData && SCOPED_TABS.has(activeTab);
+  const lastSession = data.report.dateRange?.to ?? null;
+
   return (
     <div className="flex min-h-screen flex-col bg-canvas">
       <header className="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md">
@@ -150,7 +162,10 @@ function Shell() {
               })}
             </nav>
 
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex items-center gap-3">
+              {scoped && (
+                <ScopeControl scope={data.scope} onChange={data.setScope} anchoredTo={lastSession} />
+              )}
               <span className="hud-label hidden lg:inline">local only</span>
               <ThemeControl size="sm" />
             </div>

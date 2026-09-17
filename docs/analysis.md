@@ -314,7 +314,8 @@ what keeps that harmless.
 
 ## Out of scope in this iteration
 
-Volume landmarks, body diagrams, DuckDB/SQL, any backend or sync. Linked brushing is limited to a date range; full crossfilter and
-re-clustering on a brushed subset are deliberately deferred — the latter is unstable across brush
-positions and reads as a bug. Where a decision would constrain later work, the code carries a
+Volume landmarks, body diagrams, DuckDB/SQL, any backend or sync. Linked filtering is limited to
+the header's date-range scope (see [Architecture](architecture.md#the-date-range-scope-sits-below-m5));
+full crossfilter is deferred, and the split *is* re-clustered on the scoped subset -- which is
+stable for a handful of fixed presets in a way it would not be for a free brush. Where a decision would constrain later work, the code carries a
 `// FUTURE:` comment rather than building ahead of scope.

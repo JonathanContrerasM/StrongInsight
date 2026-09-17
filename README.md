@@ -72,6 +72,7 @@ rather than folded into an average.
 | **Tagging tray** | The queue of exercises whose metadata is still a guess, highest set count first. Anything unconfirmed renders with a visible `unverified` marker wherever it appears. |
 | **Import** | An ingest report rather than a spinner: row counts, the W/D split, every unrecognised token with its verbatim value and file line, and the traps found in your own data. |
 | **Settings** | Units, week start, bodyweight entries and measurements import, theme, metadata export/import, archive rollback, reset. |
+| **Range** | A 3 / 6 / 12 month / all switch in the header, counted back from your last session rather than from today, that every chart and every finding on the analytical tabs follows together. |
 
 <table>
 <tr>

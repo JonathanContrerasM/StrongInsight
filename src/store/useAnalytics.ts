@@ -15,7 +15,8 @@ import type { Granularity } from '../derive/buckets';
  *
  * Sits strictly below the existing M1-M5 graph in useWorkoutData and adds no
  * dependency to it, so importing a CSV still parses exactly once and a metadata
- * edit never re-parses.
+ * edit never re-parses. Reads the SCOPED sets, so every chart and the insights
+ * engine follow the date range together.
  */
 
 export type AnalyticsOptions = {
@@ -25,7 +26,7 @@ export type AnalyticsOptions = {
 
 export function useAnalytics({ granularity, groupBy }: AnalyticsOptions) {
   const data = useWorkoutData();
-  const { sets, workouts, meta, settings } = data;
+  const { scopedSets: sets, scopedWorkouts: workouts, meta, settings } = data;
 
   const durations = useMemo(() => {
     const m = new Map<string, number>();

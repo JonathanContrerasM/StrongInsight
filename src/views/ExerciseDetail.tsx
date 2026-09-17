@@ -28,7 +28,15 @@ export function ExerciseDetail({
   const unit = data.settings.displayUnit;
   const meta = data.meta[name];
 
-  const sets = useMemo(() => data.sets.filter((s) => s.canonicalName === name), [data.sets, name]);
+  const sets = useMemo(
+    () => data.scopedSets.filter((s) => s.canonicalName === name),
+    [data.scopedSets, name],
+  );
+  /** Whether the lift exists at all, so an empty page can say "widen the range" rather than "no sets". */
+  const inCorpus = useMemo(
+    () => data.scopedSets !== data.sets && data.sets.some((s) => s.canonicalName === name),
+    [data.scopedSets, data.sets, name],
+  );
 
   const summary = useMemo(() => summarise(name, sets), [name, sets]);
   const sessions = useMemo(() => sessionBests(sets), [sets]);
@@ -66,7 +74,7 @@ export function ExerciseDetail({
 
   /** Partners come straight from the corpus-wide matrix; no new computation. */
   const partners = useMemo(() => {
-    const co = cooccurrence(data.sets, (n) => data.meta[n], { minAppearances: 2 });
+    const co = cooccurrence(data.scopedSets, (n) => data.meta[n], { minAppearances: 2 });
     const i = co.order.indexOf(name);
     if (i < 0) return [];
     return co.order
@@ -74,7 +82,7 @@ export function ExerciseDetail({
       .filter((r) => r.name !== name && r.shared > 0)
       .sort((a, b) => b.sim - a.sim)
       .slice(0, 8);
-  }, [data.sets, data.meta, name]);
+  }, [data.scopedSets, data.meta, name]);
 
   const isBodyweightRelative =
     meta?.loadType === 'bodyweight' ||
@@ -85,7 +93,13 @@ export function ExerciseDetail({
     return (
       <div className="space-y-3">
         <BackLink onBack={onBack} />
-        <NotEnoughData need={'No sets found for "' + name + '" in the current import.'} />
+        <NotEnoughData
+          need={
+            inCorpus
+              ? 'No sets of "' + name + '" in the last ' + data.scope + ' months. Widen the range to see its history.'
+              : 'No sets found for "' + name + '" in the current import.'
+          }
+        />
       </div>
     );
   }

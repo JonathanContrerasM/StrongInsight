@@ -54,13 +54,13 @@ export function SessionDetail({
     [recordsBySet],
   );
 
-  /** Newest first, so "previous" is the later index. */
+  /** Newest first, so "previous" is the later index. Neighbours follow the scope. */
   const neighbours = useMemo(() => {
-    const all = sessionSummaries(data.sets, data.workouts);
+    const all = sessionSummaries(data.scopedSets, data.scopedWorkouts);
     const i = all.findIndex((s) => s.workoutId === workoutId);
     if (i < 0) return { prev: null, next: null };
     return { prev: all[i + 1] ?? null, next: all[i - 1] ?? null };
-  }, [data.sets, data.workouts, workoutId]);
+  }, [data.scopedSets, data.scopedWorkouts, workoutId]);
 
   if (session === null) {
     return (
