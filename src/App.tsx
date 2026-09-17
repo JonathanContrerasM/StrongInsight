@@ -8,7 +8,10 @@ import { Dashboard } from './views/Dashboard';
 import { Improvements } from './views/Improvements';
 import { Compare } from './views/Compare';
 import { ExerciseDetail } from './views/ExerciseDetail';
+import { SessionList } from './views/SessionList';
+import { SessionDetail } from './views/SessionDetail';
 import { ThemeControl } from './ui/ThemeControl';
+import { ScopeControl } from './views/ScopeControl';
 import { BrandMark, Wordmark } from './ui/BrandMark';
 import { Badge, Notice } from './ui/primitives';
 import {
@@ -21,6 +24,9 @@ import {
   type Route,
   type Tab,
 } from './ui/tabs';
+
+/** The tabs the date range applies to. Import, the tray, Compare and Settings read the whole corpus. */
+const SCOPED_TABS: ReadonlySet<Tab> = new Set<Tab>(['dashboard', 'improvements', 'exercises', 'sessions']);
 
 function Shell() {
   const data = useWorkoutData();
@@ -87,6 +93,7 @@ function Shell() {
   };
 
   const openExercise = (name: string) => goTo('exercises', name);
+  const openSession = (id: string | null = null) => goTo('sessions', id);
   const select = (id: Tab) => goTo(id);
 
   /**
@@ -94,12 +101,20 @@ function Shell() {
    * opened the lift instead of adding another -- otherwise browser Back would
    * appear to go forward, back onto the lift you just left.
    */
-  const backToList = () => {
+  const backToList = (tab: Tab) => () => {
     if (hasPushed.current && typeof window !== 'undefined') window.history.back();
-    else goTo('exercises');
+    else goTo(tab);
   };
 
   const trayCount = data.unconfirmedCount;
+
+  /**
+   * The date range applies to the analytical tabs only. It is hidden, not
+   * disabled, elsewhere: a range control on the Import page would imply the
+   * import itself could be scoped.
+   */
+  const scoped = hasData && SCOPED_TABS.has(activeTab);
+  const lastSession = data.report.dateRange?.to ?? null;
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas">
@@ -147,7 +162,10 @@ function Shell() {
               })}
             </nav>
 
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex items-center gap-3">
+              {scoped && (
+                <ScopeControl scope={data.scope} onChange={data.setScope} anchoredTo={lastSession} />
+              )}
               <span className="hud-label hidden lg:inline">local only</span>
               <ThemeControl size="sm" />
             </div>
@@ -222,7 +240,11 @@ function Shell() {
         )}
 
         {activeTab === 'dashboard' && (
-          <Dashboard onSelectExercise={openExercise} onGoToTray={() => select('tray')} />
+          <Dashboard
+            onSelectExercise={openExercise}
+            onSelectSession={openSession}
+            onGoToTray={() => select('tray')}
+          />
         )}
         {activeTab === 'improvements' && <Improvements onSelectExercise={openExercise} />}
         {activeTab === 'compare' && <Compare />}
@@ -230,11 +252,23 @@ function Shell() {
           (route.detail ? (
             <ExerciseDetail
               name={route.detail}
-              onBack={backToList}
-              onSelectExercise={(n) => goTo('exercises', n)}
+              onBack={backToList('exercises')}
+              onSelectExercise={openExercise}
+              onSelectSession={openSession}
             />
           ) : (
-            <ExerciseList onSelectExercise={(n) => goTo('exercises', n)} />
+            <ExerciseList onSelectExercise={openExercise} />
+          ))}
+        {activeTab === 'sessions' &&
+          (route.detail ? (
+            <SessionDetail
+              workoutId={route.detail}
+              onBack={backToList('sessions')}
+              onSelectSession={openSession}
+              onSelectExercise={openExercise}
+            />
+          ) : (
+            <SessionList onSelectSession={openSession} onSelectExercise={openExercise} />
           ))}
         {activeTab === 'tray' && <TaggingTray />}
         {activeTab === 'import' && <Import />}

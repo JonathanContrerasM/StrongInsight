@@ -94,6 +94,47 @@ export function daysBetween(a: Date, b: Date): number {
   return Math.round((startOfDay(b).getTime() - startOfDay(a).getTime()) / DAY_MS);
 }
 
+// --- the date-range scope -----------------------------------------------------
+
+/** Months of history to look at, counted back from the last session; null is all of it. */
+export type ScopeMonths = 3 | 6 | 12 | null;
+export const SCOPE_OPTIONS: ReadonlyArray<{ value: ScopeMonths; label: string }> = [
+  { value: 3, label: '3 m' },
+  { value: 6, label: '6 m' },
+  { value: 12, label: '12 m' },
+  { value: null, label: 'All' },
+];
+
+/**
+ * Local midnight, `months` calendar months before `d`, with the day clamped so
+ * 31 March minus one month is 28 February rather than 3 March. Calendar months
+ * rather than 30-day blocks, because "the last three months" to a person means
+ * the same day of the month, not 90 days.
+ */
+export function monthsBefore(d: Date, months: number): Date {
+  const y = d.getFullYear();
+  const m = d.getMonth() - months;
+  const lastDayOfTarget = new Date(y, m + 1, 0).getDate();
+  return new Date(y, m, Math.min(d.getDate(), lastDayOfTarget));
+}
+
+/**
+ * The sets inside the scope, anchored on the LAST SESSION rather than today.
+ * That is the same rule the insights engine follows for recency, and the only
+ * one that behaves against an export from three months ago -- anchored on the
+ * wall clock, "last 3 months" of such a file would be empty.
+ *
+ * `null` returns the input by identity, so `all` costs nothing and every memo
+ * keyed on the array keeps its cache.
+ */
+export function scopeSets<T extends { date: Date }>(sets: T[], months: ScopeMonths): T[] {
+  if (months === null || sets.length === 0) return sets;
+  let last = sets[0]!.date;
+  for (const s of sets) if (s.date > last) last = s.date;
+  const cutoff = monthsBefore(last, months);
+  return sets.filter((s) => s.date >= cutoff);
+}
+
 export type Bucketed<T> = { key: string; start: Date; items: T[] };
 
 /**

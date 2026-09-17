@@ -286,24 +286,63 @@ describe('stalled lifts', () => {
 
   it('flags a lift whose estimated 1RM is falling', () => {
     const r = run(progression((i) => 100 - i * 1.5));
-    expect(of(r, 'stalled-lift').map((f) => f.subject)).toContain('Bench Press (Barbell)');
+    expect(of(r, 'regressed-lift').map((f) => f.subject)).toContain('Bench Press (Barbell)');
   });
 
   it('says nothing about a lift that is progressing', () => {
     const r = run(progression((i) => 100 + i * 1.5));
-    expect(of(r, 'stalled-lift')).toEqual([]);
+    expect(of(r, 'regressed-lift')).toEqual([]);
   });
 
   it('says nothing about a flat lift with too much scatter to call', () => {
     // Noisy but trendless: the fit exists, its slope is not distinguishable
-    // from zero, and the engine must stay quiet rather than pick a direction.
+    // from zero, and the engine must stay quiet rather than pick a direction --
+    // neither "going backwards" nor "plateaued".
     const r = run(progression((i) => 100 + (i % 3) * 6 - (i % 2) * 5));
+    expect(of(r, 'regressed-lift')).toEqual([]);
     expect(of(r, 'stalled-lift')).toEqual([]);
+    expect(r.positives).toEqual([]);
+  });
+
+  it('calls a plateau only when the gain is provably below a meaningful one', () => {
+    // Tight noise around a flat line: the slope's error bar excludes 2.5% gain.
+    const flat = run(progression((i) => 100 + (i % 2) * 0.5));
+    expect(of(flat, 'stalled-lift').map((f) => f.subject)).toEqual(['Bench Press (Barbell)']);
+    expect(of(flat, 'stalled-lift')[0]?.title).toContain('plateaued');
+    expect(of(flat, 'regressed-lift')).toEqual([]);
+
+    // The same noise on a slowly rising line: not flat, so not a plateau.
+    const rising = run(progression((i) => 100 + i * 0.75 + (i % 2) * 0.5));
+    expect(of(rising, 'stalled-lift')).toEqual([]);
+  });
+
+  it('reports a lift that is identical every session as a fact', () => {
+    const r = run(progression(() => 100));
+    const [f] = of(r, 'stalled-lift');
+    expect(f?.title).toContain('has not moved');
+    expect(f?.evidence.z).toBeNull();
+  });
+
+  it('lists a provably climbing lift under positives, through the same gate', () => {
+    const r = run(progression((i) => 100 + i * 1.5 + (i % 2) * 0.5));
+    expect(r.positives.map((f) => f.kind)).toContain('progressing-lift');
+    expect(r.findings.map((f) => f.kind)).not.toContain('progressing-lift');
+    // A positive is a pass that cleared the bar, so it is inside notAdverse.
+    expect(r.notAdverse).toBeGreaterThanOrEqual(r.positives.length);
+  });
+
+  it('never lists the same subject as both a weakness and a positive', () => {
+    const r = run([
+      ...progression((i) => 100 + i * 1.5 + (i % 2) * 0.5),
+      ...progression((i) => 100 - i * 1.5).map((row) => ({ ...row, exercise: 'Squat (Barbell)' })),
+    ]);
+    const bad = new Set(r.findings.map((f) => f.subject).filter(Boolean));
+    for (const p of r.positives) if (p.subject) expect(bad.has(p.subject)).toBe(false);
   });
 
   it('refuses a lift with too few sessions to fit', () => {
     const r = run(progression((i) => 100 - i * 2, 5));
-    expect(of(r, 'stalled-lift')).toEqual([]);
+    expect(of(r, 'regressed-lift')).toEqual([]);
     expect(r.skippedRules).toContain('stalled-lift');
   });
 
@@ -321,7 +360,55 @@ describe('stalled lifts', () => {
         reps: 5,
       });
     }
-    expect(of(run(rows), 'stalled-lift')).toEqual([]);
+    expect(of(run(rows), 'regressed-lift')).toEqual([]);
+  });
+});
+
+describe('pr rate', () => {
+  /**
+   * Weekly sessions over `weeks`, with the load rising by `kgAt(week)`: every
+   * week the load rises is a load record, so PR density is directly planted.
+   */
+  function weekly(kgAt: (i: number) => number, weeks = 52): RowSpec[] {
+    const rows: RowSpec[] = [];
+    for (let i = 0; i < weeks; i++) {
+      const d = new Date(2024, 0, 1 + i * 7);
+      rows.push({
+        date:
+          d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') +
+          '-' + String(d.getDate()).padStart(2, '0') + ' 18:00:00',
+        workout: 'W' + i,
+        exercise: 'Bench Press (Barbell)',
+        weight: kgAt(i),
+        reps: 5,
+      });
+    }
+    return rows;
+  }
+
+  it('flags records that were weekly and then stopped', () => {
+    // 26 weeks of a new load every week, then 26 weeks parked at the same load.
+    const r = run(weekly((i) => (i < 26 ? 60 + i * 2.5 : 122.5)));
+    expect(of(r, 'pr-rate')).toHaveLength(1);
+    expect(of(r, 'pr-rate')[0]?.chart?.type).toBe('series');
+  });
+
+  it('says nothing when records keep coming at the same rate', () => {
+    const r = run(weekly((i) => 60 + i * 2.5));
+    expect(of(r, 'pr-rate')).toEqual([]);
+  });
+
+  it('counts the dry months after the last record, not just up to it', () => {
+    // Records for 10 weeks, then 40 weeks of nothing -- only visible if the
+    // window is spanned to the corpus rather than to the last record.
+    const r = run(weekly((i) => (i < 10 ? 60 + i * 2.5 : 82.5), 50));
+    expect(of(r, 'pr-rate')).toHaveLength(1);
+  });
+
+  it('refuses a corpus shorter than half a year', () => {
+    const r = run(weekly((i) => 60 + i * 2.5, 12));
+    expect(of(r, 'pr-rate')).toEqual([]);
+    expect(r.skippedRules).toContain('pr-rate');
   });
 });
 
@@ -385,7 +472,7 @@ describe.skipIf(!present)('the reference corpus', () => {
 
   it('never reports a lift as both abandoned and stalled', () => {
     const abandoned = new Set(of(r, 'abandoned-lift').map((f) => f.subject));
-    for (const f of of(r, 'stalled-lift')) expect(abandoned.has(f.subject)).toBe(false);
+    for (const f of of(r, 'regressed-lift')) expect(abandoned.has(f.subject)).toBe(false);
   });
 
   it('discards a real share of what it tested', () => {

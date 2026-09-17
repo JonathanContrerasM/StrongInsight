@@ -1,4 +1,4 @@
-import type { EnrichedSet } from '../model/effectiveLoad';
+import { loadParts, type EnrichedSet, type LoadParts } from '../model/effectiveLoad';
 
 /**
  * PURE functions over EnrichedSet[]. No React, no IO, no dates-from-now.
@@ -148,22 +148,34 @@ export type ExerciseSummary = {
   firstDate: Date | null;
   lastDate: Date | null;
   bestE1rmKg: number | null;
+  /** The set behind the best e1RM: an estimate is a number from nowhere without it. */
+  bestE1rmFrom: { loadKg: number; reps: number; parts: LoadParts | null } | null;
   heaviestKg: number | null;
+  /** Bodyweight and added load behind `heaviestKg`, on a bodyweight-relative lift. */
+  heaviestParts: LoadParts | null;
 };
 
 export function summarise(name: string, sets: EnrichedSet[]): ExerciseSummary {
   let firstDate: Date | null = null;
   let lastDate: Date | null = null;
   let bestE1rmKg: number | null = null;
+  let bestE1rmSet: EnrichedSet | null = null;
   let heaviestKg: number | null = null;
+  let heaviestSet: EnrichedSet | null = null;
 
   for (const s of sets) {
     if (firstDate === null || s.date < firstDate) firstDate = s.date;
     if (lastDate === null || s.date > lastDate) lastDate = s.date;
     const est = e1rm(s);
-    if (est !== null && (bestE1rmKg === null || est > bestE1rmKg)) bestE1rmKg = est;
+    if (est !== null && (bestE1rmKg === null || est > bestE1rmKg)) {
+      bestE1rmKg = est;
+      bestE1rmSet = s;
+    }
     const load = s.isUnloaded ? null : s.effectiveLoadKg;
-    if (load !== null && (heaviestKg === null || load > heaviestKg)) heaviestKg = load;
+    if (load !== null && (heaviestKg === null || load > heaviestKg)) {
+      heaviestKg = load;
+      heaviestSet = s;
+    }
   }
 
   return {
@@ -173,7 +185,15 @@ export function summarise(name: string, sets: EnrichedSet[]): ExerciseSummary {
     firstDate,
     lastDate,
     bestE1rmKg,
+    bestE1rmFrom: bestE1rmSet
+      ? {
+          loadKg: bestE1rmSet.effectiveLoadKg as number,
+          reps: bestE1rmSet.reps as number,
+          parts: loadParts(bestE1rmSet),
+        }
+      : null,
     heaviestKg,
+    heaviestParts: heaviestSet ? loadParts(heaviestSet) : null,
   };
 }
 

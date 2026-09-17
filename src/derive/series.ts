@@ -1,7 +1,9 @@
-import type { EnrichedSet } from '../model/effectiveLoad';
+import { loadParts, type EnrichedSet, type LoadParts } from '../model/effectiveLoad';
 import { e1rm, volume, type VolumeResult } from './index';
 import { bucketBy, type Granularity, type WeekStart } from './buckets';
 import { linearTrend, rollingMedian, runningMax } from './stats';
+import type { MetaLookup } from './balance';
+import { sessionFocus, type FocusGroup } from './focus';
 
 /**
  * Time series over EnrichedSet[]. All pure.
@@ -94,6 +96,8 @@ export type SessionBest = {
   date: Date;
   bestE1rmKg: number | null;
   heaviestKg: number | null;
+  /** Bodyweight and added load behind `heaviestKg`, on a bodyweight-relative lift. */
+  heaviestParts: LoadParts | null;
   /**
    * Total volume for this exercise in this session.
    *
@@ -134,6 +138,7 @@ export function sessionBests(sets: EnrichedSet[]): SessionBest[] {
 
     let bestE1rm: number | null = null;
     let heaviest: number | null = null;
+    let heaviestSet: EnrichedSet | null = null;
     let skipped = 0;
     const repCounts = new Map<number, number>();
     let date = first.date;
@@ -145,7 +150,10 @@ export function sessionBests(sets: EnrichedSet[]): SessionBest[] {
       else if (bestE1rm === null || est > bestE1rm) bestE1rm = est;
 
       const load = s.isUnloaded ? null : s.effectiveLoadKg;
-      if (load !== null && load > 0 && (heaviest === null || load > heaviest)) heaviest = load;
+      if (load !== null && load > 0 && (heaviest === null || load > heaviest)) {
+        heaviest = load;
+        heaviestSet = s;
+      }
 
       if (s.reps !== null && s.reps > 0) {
         const r = Math.round(s.reps);
@@ -160,6 +168,7 @@ export function sessionBests(sets: EnrichedSet[]): SessionBest[] {
       date,
       bestE1rmKg: bestE1rm,
       heaviestKg: heaviest,
+      heaviestParts: heaviestSet ? loadParts(heaviestSet) : null,
       // Uses the shared volume() helper so the exclusion rules (unloaded sets,
       // unresolvable load, zero reps) match every other volume figure in the app.
       volumeKg: volume(list).volumeKg,
@@ -233,14 +242,12 @@ export function bodyweightVsAddedSeries(sets: EnrichedSet[], opts: SeriesOptions
     let loaded = 0;
 
     for (const s of b.items) {
-      if (s.effectiveLoadKg === null) continue;
-      const added = s.loadType === 'assisted' ? -(s.weightKg ?? 0) : (s.weightKg ?? 0);
-      // effectiveLoad already folded bodyweight in; recover the base component.
-      const base = s.effectiveLoadKg - added;
-      bwSum += base;
-      addedSum += added;
+      const parts = loadParts(s);
+      if (parts === null) continue;
+      bwSum += parts.bodyweightKg;
+      addedSum += parts.addedKg;
       n++;
-      if (added !== 0) loaded++;
+      if (parts.addedKg !== 0) loaded++;
     }
 
     return {
@@ -260,10 +267,20 @@ export type DayCell = {
   key: string;
   hasWorkout: boolean;
   workoutCount: number;
+  /** Usually one; two when a day was logged as two sessions. The calendar links through these. */
+  workoutIds: string[];
   setCount: number;
   volumeKg: number;
   exercises: string[];
   durationSec: number;
+  /**
+   * The day's leading focus group, for the calendar's split mode. Null on a
+   * rest day, when nothing could be assigned, or when two sessions on one day
+   * lead with different groups -- a mixed day is drawn as mixed, not forced.
+   */
+  focus: FocusGroup | null;
+  /** Every tag of every session that day, largest first, for the tooltip. */
+  focusLabel: string | null;
 };
 
 /**
@@ -275,6 +292,7 @@ export type DayCell = {
 export function calendarDays(
   sets: EnrichedSet[],
   durations: Map<string, number> = new Map(),
+  meta: MetaLookup = () => undefined,
 ): DayCell[] {
   if (sets.length === 0) return [];
 
@@ -304,15 +322,31 @@ export function calendarDays(
     let durationSec = 0;
     for (const id of workoutIds) durationSec += durations.get(id) ?? 0;
 
+    // One focus per session, then the day agrees or it does not.
+    let focus: FocusGroup | null = null;
+    let disagree = false;
+    const labels: string[] = [];
+    for (const id of workoutIds) {
+      const f = sessionFocus(items.filter((s) => s.workoutId === id), meta);
+      if (f.tags.length > 0) labels.push(f.label);
+      const lead = f.tags[0]?.group ?? null;
+      if (lead === null) continue;
+      if (focus === null) focus = lead;
+      else if (focus !== lead) disagree = true;
+    }
+
     out.push({
       date: new Date(cur.getTime()),
       key,
       hasWorkout: items.length > 0,
       workoutCount: workoutIds.size,
+      workoutIds: [...workoutIds],
       setCount: items.length,
       volumeKg: volume(items).volumeKg,
       exercises: [...new Set(items.map((s) => s.canonicalName))],
       durationSec,
+      focus: disagree ? null : focus,
+      focusLabel: labels.length > 0 ? labels.join(' + ') : null,
     });
     // setDate rather than +86400000: epoch arithmetic drops or duplicates a day
     // across a DST boundary, and this range spans several.

@@ -6,6 +6,7 @@ import { balanceSeries, balanceVerdict, volumeMatrix, type GroupBy } from '../de
 import { habitMap, repDensity, muscleGroup } from '../derive/profile';
 import { cooccurrence, type CooccurrenceResult } from '../derive/cooccurrence';
 import { findings, type FindingSet } from '../derive/insights';
+import { records, recordsPerBucket, type RecordEvent } from '../derive/records';
 import type { ExerciseMeta } from '../model/types';
 import type { Granularity } from '../derive/buckets';
 
@@ -14,7 +15,8 @@ import type { Granularity } from '../derive/buckets';
  *
  * Sits strictly below the existing M1-M5 graph in useWorkoutData and adds no
  * dependency to it, so importing a CSV still parses exactly once and a metadata
- * edit never re-parses.
+ * edit never re-parses. Reads the SCOPED sets, so every chart and the insights
+ * engine follow the date range together.
  */
 
 export type AnalyticsOptions = {
@@ -24,7 +26,7 @@ export type AnalyticsOptions = {
 
 export function useAnalytics({ granularity, groupBy }: AnalyticsOptions) {
   const data = useWorkoutData();
-  const { sets, workouts, meta, settings } = data;
+  const { scopedSets: sets, scopedWorkouts: workouts, meta, settings } = data;
 
   const durations = useMemo(() => {
     const m = new Map<string, number>();
@@ -32,14 +34,17 @@ export function useAnalytics({ granularity, groupBy }: AnalyticsOptions) {
     return m;
   }, [workouts]);
 
-  const days: DayCell[] = useMemo(() => calendarDays(sets, durations), [sets, durations]);
-
   /**
    * Metadata lookup that folds fine-grained muscles into groups when the caller
    * asked for muscle grouping. 20 muscles exceed what categorical colour can
    * carry; the muscle heatmap uses a sequential scale and so keeps full detail.
    */
   const lookup = useMemo(() => (name: string) => meta[name], [meta]);
+
+  const days: DayCell[] = useMemo(
+    () => calendarDays(sets, durations, lookup),
+    [sets, durations, lookup],
+  );
 
   const groupedLookup = useMemo(() => {
     return (name: string): ExerciseMeta | undefined => {
@@ -106,29 +111,25 @@ export function useAnalytics({ granularity, groupBy }: AnalyticsOptions) {
     [sessionKey],
   );
 
-  /** Which recovered group a given day's session belongs to, if any dominates. */
-  const clusterOfDay = useMemo(() => {
-    const memberToCluster = new Map<string, number>();
-    split.clusters.forEach((c, i) => c.members.forEach((m) => memberToCluster.set(m, i)));
-
-    return (day: DayCell): number | null => {
-      if (!day.hasWorkout) return null;
-      const counts = new Map<number, number>();
-      let placed = 0;
-      for (const name of day.exercises) {
-        const c = memberToCluster.get(name);
-        if (c === undefined) continue;
-        counts.set(c, (counts.get(c) ?? 0) + 1);
-        placed++;
-      }
-      if (placed === 0) return null;
-      const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
-      // Never force an assignment: a genuinely mixed session stays mixed.
-      return top && top[1] / placed >= 0.5 ? top[0] : null;
-    };
-  }, [split]);
-
   const unconfirmedSets = useMemo(() => sets.filter((s) => !s.metaConfirmed).length, [sets]);
+
+  /** Every personal record, ascending. Depends on load, hence on metadata. */
+  const events: RecordEvent[] = useMemo(() => records(sets), [sets]);
+
+  /** Monthly, spanned to the corpus so the dry months at the end are drawn. */
+  const recordsMonthly = useMemo(() => {
+    let first: Date | null = null;
+    let last: Date | null = null;
+    for (const s of sets) {
+      if (first === null || s.date < first) first = s.date;
+      if (last === null || s.date > last) last = s.date;
+    }
+    return recordsPerBucket(events, {
+      granularity: 'month',
+      weekStartsOn: settings.weekStartsOn,
+      span: first && last ? { from: first, to: last } : undefined,
+    });
+  }, [events, sets, settings.weekStartsOn]);
 
   /**
    * The weakness engine. Kept out of the `split` memo above deliberately: that
@@ -151,10 +152,10 @@ export function useAnalytics({ granularity, groupBy }: AnalyticsOptions) {
     habit,
     reps,
     split,
-    clusterOfDay,
-    clusterLabels: split.clusters.map((c) => c.label),
     unconfirmedSets,
     insights,
+    records: events,
+    recordsMonthly,
     lookup,
   };
 }

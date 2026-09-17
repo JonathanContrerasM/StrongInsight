@@ -4,6 +4,7 @@ import { summariseAll } from './index';
 import { balanceSeries, balanceVerdict, volumeMatrix, type MetaLookup } from './balance';
 import { bucketBy, daysBetween, type WeekStart } from './buckets';
 import { sessionBests } from './series';
+import { records, recordsPerBucket } from './records';
 import { median, proportionZ, quantile, slopeWithError, sortedFinite, zCritical } from './stats';
 
 /**
@@ -38,6 +39,10 @@ export type FindingKind =
   | 'layoff-pattern'
   | 'stalled-lift'
   | 'regressed-lift'
+  | 'progressing-lift'
+  | 'pr-rate'
+  | 'pr-rate-rising'
+  | 'weekly-trend-rising'
   | 'abandoned-lift'
   | 'neglected-muscle'
   | 'imbalance';
@@ -98,6 +103,12 @@ export type Finding = {
 export type FindingSet = {
   /** Ranked: clear before suggestive, then by weight. */
   findings: Finding[];
+  /**
+   * What is going WELL, held to the same gate. A lift climbing at 3 sigma is as
+   * real as one falling at 3 sigma, and a page that can only ever accuse reads
+   * as a list of accusations. Every entry here is also counted in `notAdverse`.
+   */
+  positives: Finding[];
   /** Tests that ran and did not clear the noise floor. The honest denominator. */
   suppressed: number;
   /**
@@ -121,12 +132,28 @@ const ALPHA = 0.05;
 export const MIN_TREND_POINTS = 10;
 /** ...spanning at least this long. Ten sessions in one fortnight is not a trend. */
 export const MIN_TREND_DAYS = 56;
+/**
+ * A lift has plateaued when its fitted gain over the observed span is
+ * significantly SMALLER than this fraction of its estimated 1RM. 2.5% of a
+ * 100 kg lift is 2.5 kg -- one small plate a side over two months or more is
+ * the least anyone would call progress. Equivalence-style: "flat" is a claim
+ * and gets tested, not assumed from a slope that merely failed to be negative.
+ */
+export const MIN_GAIN_FRACTION = 0.025;
 /** Sessions of history before a dropped lift counts as abandoned rather than tried. */
 export const MIN_ABANDON_SESSIONS = 8;
 /** Days without a lift, measured from the last session in the corpus. */
 export const ABANDON_DAYS = 90;
 /** A gap longer than this is a layoff rather than a rest day. */
 export const LAYOFF_DAYS = 7;
+/**
+ * The PR-rate trend is measured over at most this many months, ending at the
+ * last session. Over a whole history the rate ALWAYS falls -- a first year is
+ * nothing but records -- and reporting that would tell every intermediate
+ * lifter they are drying up. Over the last year it says something about now.
+ */
+export const PR_RATE_MONTHS = 12;
+export const PR_RATE_MIN_MONTHS = 6;
 /**
  * Flag this many weekdays or more and it is a training schedule, not a set of
  * holes in one -- they fold into a single observation.
@@ -189,10 +216,23 @@ class Collector {
     this.findings.push({ ...f, confidence: 'clear' });
   }
 
-  /** A test that ran and found no weakness in the direction that would be one. */
-  pass(): void {
+  readonly positives: Finding[] = [];
+
+  /**
+   * A test that ran and found no weakness in the direction that would be one.
+   *
+   * Given a finding, the good direction is reported through the SAME gate: a
+   * positive that would not survive as a weakness does not survive as praise
+   * either, so "going well" cannot become the soft-focus version of the tab.
+   * Below the gate it is silently a pass -- the counters keep their meaning.
+   */
+  pass(f?: Omit<Finding, 'confidence'> & { evidence: Evidence & { z: number } }): void {
     this.testsRun++;
     this.notAdverse++;
+    if (!f) return;
+    const confidence = gate(f.evidence.z, f.evidence.familySize);
+    if (confidence === null) return;
+    this.positives.push({ ...f, confidence });
   }
 
   skip(rule: string): void {
@@ -377,12 +417,32 @@ function weeklyTrend(sets: EnrichedSet[], weekStartsOn: WeekStart, c: Collector)
     return;
   }
   const meanPerWeek = counts.reduce((a, b) => a + b, 0) / counts.length;
-  // Only a decline is a weakness.
+  const perTenWeeks = Math.abs(fit.slope) * 10;
+  // Only a decline is a weakness; a rise is worth saying, through the same gate.
   if (fit.slope >= 0) {
-    c.pass();
+    c.pass(
+      fit.slope > 0
+        ? {
+            id: 'weekly-trend-rising',
+            kind: 'weekly-trend-rising',
+            family: 'consistency',
+            weight: fit.z,
+            title: 'You are training more often',
+            detail:
+              'Sessions per week are rising by about ' + perTenWeeks.toFixed(2) +
+              ' every ten weeks across ' + weeks.length + ' weeks, from an average of ' +
+              meanPerWeek.toFixed(1) + '.',
+            evidence: { observed: fit.slope, expected: 0, n: weeks.length, z: fit.z, familySize: 1 },
+            chart: {
+              type: 'series',
+              values: counts,
+              trend: [fit.intercept, fit.intercept + fit.slope * (counts.length - 1)],
+            },
+          }
+        : undefined,
+    );
     return;
   }
-  const perTenWeeks = Math.abs(fit.slope) * 10;
   c.test({
     id: 'weekly-trend',
     kind: 'weekly-trend',
@@ -526,36 +586,208 @@ function stalledLifts(sets: EnrichedSet[], abandoned: Set<string>, c: Collector)
   const familySize = candidates.length;
 
   for (const cand of candidates) {
-    if (cand.fit.slope >= 0) {
-      c.pass();
+    const perMonth = cand.fit.slope * 30;
+    const chart: FindingChart = {
+      type: 'series',
+      values: cand.series,
+      trend: [cand.fit.intercept, cand.fit.intercept + cand.fit.slope * cand.spanDays],
+    };
+    const evidence = (z: number): Evidence & { z: number } => ({
+      observed: cand.fit.slope,
+      expected: 0,
+      n: cand.points,
+      z,
+      familySize,
+    });
+
+    // Falling, and provably so. A slope that is merely negative is not: it
+    // gets the plateau test below, since "flat" is where most such lifts sit.
+    if (cand.fit.slope < 0 && gate(cand.fit.z, familySize) !== null) {
+      c.test({
+        id: 'regressed:' + cand.name,
+        kind: 'regressed-lift',
+        family: 'progression',
+        subject: cand.name,
+        weight: Math.abs(cand.fit.z),
+        title: cand.name + ' is going backwards',
+        detail:
+          'Estimated 1RM is falling about ' + Math.abs(perMonth).toFixed(1) +
+          ' kg a month across ' + cand.points + ' sessions over ' + cand.days +
+          ' days (' + cand.firstKg.toFixed(1) + ' kg to ' + cand.lastKg.toFixed(1) + ' kg).',
+        evidence: evidence(cand.fit.z),
+        chart,
+      });
       continue;
     }
-    const perMonth = cand.fit.slope * 30;
-    c.test({
-      id: 'stalled:' + cand.name,
-      kind: 'stalled-lift',
-      family: 'progression',
-      subject: cand.name,
-      weight: Math.abs(cand.fit.z),
-      title: cand.name + ' is going backwards',
-      detail:
-        'Estimated 1RM is falling about ' + Math.abs(perMonth).toFixed(1) +
-        ' kg a month across ' + cand.points + ' sessions over ' + cand.days +
-        ' days (' + cand.firstKg.toFixed(1) + ' kg to ' + cand.lastKg.toFixed(1) + ' kg).',
-      evidence: {
-        observed: cand.fit.slope,
-        expected: 0,
-        n: cand.points,
-        z: cand.fit.z,
-        familySize,
-      },
-      chart: {
-        type: 'series',
-        values: cand.series,
-        trend: [cand.fit.intercept, cand.fit.intercept + cand.fit.slope * cand.spanDays],
-      },
-    });
+
+    /**
+     * The plateau test. Not "slope is about zero" -- that is what a slope looks
+     * like before there is evidence either way. The claim is that the gain over
+     * the span is significantly less than a meaningful one, and it is scored as
+     * how many standard errors the fitted slope sits BELOW that minimum. A
+     * perfectly collinear series has stdErr 0 and is left to the fact below.
+     */
+    const meanKg = cand.series.reduce((a, b) => a + b, 0) / cand.series.length;
+    const minGainPerDay = (MIN_GAIN_FRACTION * meanKg) / cand.spanDays;
+    if (cand.fit.stdErr === 0) {
+      if (cand.fit.slope === 0) {
+        // Identical every session: nothing to infer, and nothing moved.
+        c.fact({
+          id: 'stalled:' + cand.name,
+          kind: 'stalled-lift',
+          family: 'progression',
+          subject: cand.name,
+          weight: 3,
+          title: cand.name + ' has not moved',
+          detail:
+            'The same estimated 1RM in every one of ' + cand.points + ' sessions over ' +
+            cand.days + ' days.',
+          evidence: { observed: 0, expected: minGainPerDay, n: cand.points, z: null, familySize: 1 },
+          chart,
+        });
+      } else {
+        c.pass();
+      }
+      continue;
+    }
+
+    const zFlat = (minGainPerDay - cand.fit.slope) / cand.fit.stdErr;
+    if (zFlat > 0 && gate(zFlat, familySize) !== null) {
+      const gained = cand.fit.slope * cand.spanDays;
+      c.test({
+        id: 'stalled:' + cand.name,
+        kind: 'stalled-lift',
+        family: 'progression',
+        subject: cand.name,
+        weight: zFlat,
+        title: cand.name + ' has plateaued',
+        detail:
+          'Estimated 1RM moved about ' + gained.toFixed(1) + ' kg over ' + cand.days +
+          ' days across ' + cand.points + ' sessions, against at least ' +
+          (MIN_GAIN_FRACTION * meanKg).toFixed(1) + ' kg for that to count as progress. ' +
+          'Flat within the noise, not merely not falling.',
+        evidence: { ...evidence(zFlat), expected: minGainPerDay },
+        chart,
+      });
+      continue;
+    }
+
+    // Neither provably falling nor provably flat. A negative slope was tested
+    // as a regression and did not clear; a non-negative one is a pass, and if
+    // it is provably RISING, say so.
+    if (cand.fit.slope < 0) {
+      c.testsRun++;
+      c.suppressed++;
+      continue;
+    }
+    c.pass(
+      cand.fit.slope > 0
+        ? {
+            id: 'progressing:' + cand.name,
+            kind: 'progressing-lift',
+            family: 'progression',
+            subject: cand.name,
+            weight: cand.fit.z,
+            title: cand.name + ' is climbing',
+            detail:
+              'Estimated 1RM is rising about ' + perMonth.toFixed(1) + ' kg a month across ' +
+              cand.points + ' sessions over ' + cand.days + ' days (' + cand.firstKg.toFixed(1) +
+              ' kg to ' + cand.lastKg.toFixed(1) + ' kg).',
+            evidence: evidence(cand.fit.z),
+            chart,
+          }
+        : undefined,
+    );
   }
+}
+
+/**
+ * Are personal records getting rarer?
+ *
+ * Counts every record kind together: a lift can set a rep PR for months
+ * without a load PR, and that is still progress. Only a decline is a weakness.
+ */
+function prRate(sets: EnrichedSet[], weekStartsOn: WeekStart, c: Collector): void {
+  let first: Date | null = null;
+  let last: Date | null = null;
+  for (const s of sets) {
+    if (first === null || s.date < first) first = s.date;
+    if (last === null || s.date > last) last = s.date;
+  }
+  if (first === null || last === null) {
+    c.skip('pr-rate');
+    return;
+  }
+  // Spanned to the corpus, not to the last record: the dry months since the
+  // last PR are the observation, and they only exist as empty buckets.
+  const months = recordsPerBucket(records(sets), {
+    granularity: 'month',
+    weekStartsOn,
+    span: { from: first, to: last },
+  });
+  const window = months.slice(-PR_RATE_MONTHS);
+  if (window.length < PR_RATE_MIN_MONTHS) {
+    c.skip('pr-rate');
+    return;
+  }
+
+  const counts = window.map((m) => m.count);
+  const fit = slopeWithError(counts.map((y, x) => ({ x, y })));
+  if (fit === null || fit.stdErr === 0) {
+    c.skip('pr-rate');
+    return;
+  }
+  const mean = counts.reduce((a, b) => a + b, 0) / counts.length;
+  const startFit = Math.max(0, fit.intercept);
+  const endFit = Math.max(0, fit.intercept + fit.slope * (counts.length - 1));
+  if (fit.slope >= 0) {
+    c.pass(
+      fit.slope > 0
+        ? {
+            id: 'pr-rate-rising',
+            kind: 'pr-rate-rising',
+            family: 'progression',
+            weight: fit.z,
+            title: 'Personal records are coming faster',
+            detail:
+              'Across the last ' + window.length + ' months the trend runs from about ' +
+              startFit.toFixed(1) + ' records a month to ' + endFit.toFixed(1) +
+              ', around an average of ' + mean.toFixed(1) + '.',
+            evidence: { observed: fit.slope, expected: 0, n: window.length, z: fit.z, familySize: 1 },
+            chart: {
+              type: 'series',
+              values: counts,
+              trend: [fit.intercept, fit.intercept + fit.slope * (counts.length - 1)],
+            },
+          }
+        : undefined,
+    );
+    return;
+  }
+  c.test({
+    id: 'pr-rate',
+    kind: 'pr-rate',
+    family: 'progression',
+    weight: Math.abs(fit.z),
+    title: 'Personal records are drying up',
+    detail:
+      'Across the last ' + window.length + ' months the trend runs from about ' +
+      startFit.toFixed(1) + ' records a month to ' + endFit.toFixed(1) +
+      ', around an average of ' + mean.toFixed(1) + '. Every kind counts: a new best load, ' +
+      'a new estimated 1RM, or more reps at a load you had lifted before.',
+    evidence: {
+      observed: fit.slope,
+      expected: 0,
+      n: window.length,
+      z: fit.z,
+      familySize: 1,
+    },
+    chart: {
+      type: 'series',
+      values: counts,
+      trend: [fit.intercept, fit.intercept + fit.slope * (counts.length - 1)],
+    },
+  });
 }
 
 // --- neglect & imbalance ------------------------------------------------------
@@ -747,6 +979,7 @@ export function findings(
   if (sets.length === 0) {
     return {
       findings: [],
+      positives: [],
       suppressed: 0,
       notAdverse: 0,
       testsRun: 0,
@@ -763,19 +996,21 @@ export function findings(
   // stalled, nor inflate the stall family size.
   const abandoned = abandonedLifts(sets, c);
   stalledLifts(sets, abandoned, c);
+  prRate(sets, opts.weekStartsOn, c);
   neglectedMuscles(sets, meta, opts.weekStartsOn, c);
   imbalances(sets, meta, opts.weekStartsOn, c);
 
-  const ranked = c.findings.slice().sort((a, b) => {
+  const rank = (a: Finding, b: Finding) => {
     const tier = TIER_RANK[a.confidence] - TIER_RANK[b.confidence];
     if (tier !== 0) return tier;
     if (b.weight !== a.weight) return b.weight - a.weight;
     // Stable, so re-running never reshuffles equal findings.
     return a.id.localeCompare(b.id);
-  });
+  };
 
   return {
-    findings: ranked,
+    findings: c.findings.slice().sort(rank),
+    positives: c.positives.slice().sort(rank),
     suppressed: c.suppressed,
     notAdverse: c.notAdverse,
     testsRun: c.testsRun,

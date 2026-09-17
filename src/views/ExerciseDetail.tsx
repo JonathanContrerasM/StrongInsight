@@ -9,22 +9,34 @@ import { summarise } from '../derive';
 import { sessionBests, smoothSessionBests, bodyweightVsAddedSeries } from '../derive/series';
 import { loadRepDensity, repDensity, setPositionProfile } from '../derive/profile';
 import { cooccurrence } from '../derive/cooccurrence';
-import { formatDate, formatVolume, formatWeight } from '../format';
+import { records } from '../derive/records';
+import { RecordList } from './RecordList';
+import { formatDate, formatLoad, formatLoadSplit, formatVolume, formatWeight } from '../format';
 
 export function ExerciseDetail({
   name,
   onBack,
   onSelectExercise,
+  onSelectSession,
 }: {
   name: string;
   onBack: () => void;
   onSelectExercise: (n: string) => void;
+  onSelectSession?: (workoutId: string) => void;
 }) {
   const data = useWorkoutData();
   const unit = data.settings.displayUnit;
   const meta = data.meta[name];
 
-  const sets = useMemo(() => data.sets.filter((s) => s.canonicalName === name), [data.sets, name]);
+  const sets = useMemo(
+    () => data.scopedSets.filter((s) => s.canonicalName === name),
+    [data.scopedSets, name],
+  );
+  /** Whether the lift exists at all, so an empty page can say "widen the range" rather than "no sets". */
+  const inCorpus = useMemo(
+    () => data.scopedSets !== data.sets && data.sets.some((s) => s.canonicalName === name),
+    [data.scopedSets, data.sets, name],
+  );
 
   const summary = useMemo(() => summarise(name, sets), [name, sets]);
   const sessions = useMemo(() => sessionBests(sets), [sets]);
@@ -42,24 +54,27 @@ export function ExerciseDetail({
   );
 
   /**
-   * When the best e1RM was actually hit. Read off the already-computed session
-   * series rather than adding anything to the derive layer -- a personal best
-   * with no date attached is trivia.
+   * This lift's records, newest first. `records` is per-exercise internally, so
+   * handing it only these sets is the same answer as filtering the corpus-wide
+   * list, for a fraction of the work.
+   */
+  const lifts = useMemo(() => records(sets).reverse(), [sets]);
+
+  /**
+   * When the best e1RM was actually hit: the newest e1RM record. Falls back to
+   * the first session when the best was set there, since a first session sets
+   * no records by rule.
    */
   const bestDate = useMemo(() => {
     if (summary.bestE1rmKg === null) return null;
-    let found: Date | null = null;
-    for (const s of sessions) {
-      if (s.bestE1rmKg !== null && s.bestE1rmKg === summary.bestE1rmKg) {
-        if (found === null || s.date < found) found = s.date;
-      }
-    }
-    return found;
-  }, [sessions, summary.bestE1rmKg]);
+    const rec = lifts.find((e) => e.kind === 'e1rm');
+    if (rec) return rec.date;
+    return summary.firstDate;
+  }, [lifts, summary.bestE1rmKg, summary.firstDate]);
 
   /** Partners come straight from the corpus-wide matrix; no new computation. */
   const partners = useMemo(() => {
-    const co = cooccurrence(data.sets, (n) => data.meta[n], { minAppearances: 2 });
+    const co = cooccurrence(data.scopedSets, (n) => data.meta[n], { minAppearances: 2 });
     const i = co.order.indexOf(name);
     if (i < 0) return [];
     return co.order
@@ -67,7 +82,7 @@ export function ExerciseDetail({
       .filter((r) => r.name !== name && r.shared > 0)
       .sort((a, b) => b.sim - a.sim)
       .slice(0, 8);
-  }, [data.sets, data.meta, name]);
+  }, [data.scopedSets, data.meta, name]);
 
   const isBodyweightRelative =
     meta?.loadType === 'bodyweight' ||
@@ -78,7 +93,13 @@ export function ExerciseDetail({
     return (
       <div className="space-y-3">
         <BackLink onBack={onBack} />
-        <NotEnoughData need={'No sets found for "' + name + '" in the current import.'} />
+        <NotEnoughData
+          need={
+            inCorpus
+              ? 'No sets of "' + name + '" in the last ' + data.scope + ' months. Widen the range to see its history.'
+              : 'No sets found for "' + name + '" in the current import.'
+          }
+        />
       </div>
     );
   }
@@ -123,6 +144,13 @@ export function ExerciseDetail({
               </div>
               <div className="text-xs text-faint">
                 {bestDate ? 'set ' + formatDate(bestDate) : 'no estimable set'}
+                {summary.bestE1rmFrom?.parts && (
+                  <>
+                    {' '}
+                    &middot; from {formatLoad(summary.bestE1rmFrom.parts, summary.bestE1rmFrom.loadKg, unit, 1)}{' '}
+                    &times; {summary.bestE1rmFrom.reps}
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -134,7 +162,11 @@ export function ExerciseDetail({
               hint={summary.counts.warmup + ' warm-up'}
             />
             <Tile label="Volume" value={formatVolume(summary.volume.volumeKg, unit)} />
-            <Tile label="Heaviest" value={formatWeight(summary.heaviestKg, unit, 1)} />
+            <Tile
+              label="Heaviest"
+              value={formatWeight(summary.heaviestKg, unit, 1)}
+              hint={summary.heaviestParts ? formatLoadSplit(summary.heaviestParts, unit, 1) : undefined}
+            />
             <Tile label="First" value={formatDate(summary.firstDate)} />
             <Tile label="Last" value={formatDate(summary.lastDate)} />
           </div>
@@ -165,6 +197,22 @@ export function ExerciseDetail({
           subtitle="What you peaked at each session, against how much total work that session carried."
         >
           <SessionPeaksChart points={sessions} unit={unit} />
+        </ChartCard>
+
+        <ChartCard
+          title="Records"
+          subtitle={
+            lifts.length === 0
+              ? 'None yet. A first session sets no records; there was nothing to beat.'
+              : lifts.length + ' records: a heavier load, a higher estimated 1RM, or more reps at a load already lifted.'
+          }
+        >
+          <RecordList
+            events={lifts}
+            unit={unit}
+            showExercise={false}
+            onSelectSession={onSelectSession}
+          />
         </ChartCard>
 
         {isBodyweightRelative && (

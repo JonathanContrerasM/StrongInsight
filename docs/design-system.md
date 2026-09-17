@@ -123,6 +123,7 @@ address:
 // src/ui/tabs.ts
 export type Route = { tab: Tab; detail: string | null };
 export const DEFAULT_ROUTE: Route;                       // { tab: 'dashboard', detail: null }
+export const DETAIL_TABS: ReadonlySet<Tab>;              // 'exercises' | 'sessions'
 export function routeFromHash(hash: string): Route | null;
 export function hashForRoute(tab: Tab, detail?: string | null): string;
 ```
@@ -131,6 +132,7 @@ export function hashForRoute(tab: Tab, detail?: string | null): string;
 #compare                              -> { tab: 'compare',   detail: null }
 #exercises                            -> { tab: 'exercises', detail: null }
 #exercises/Bench%20Press%20(Barbell)  -> { tab: 'exercises', detail: 'Bench Press (Barbell)' }
+#sessions/k3j4h5                      -> { tab: 'sessions',  detail: 'k3j4h5' }   (a workout id)
 ```
 
 `App` holds **one** piece of navigation state seeded from `location.hash`, listens for `hashchange`,
@@ -159,7 +161,11 @@ Details that are load-bearing:
   trailing space -- so nothing about them can be assumed.
 - **`decodeURIComponent` throws on a mangled escape** like `%zz`. That is caught and returns `null`,
   so a hand-edited URL degrades instead of taking the app down on mount.
-- **A detail segment is refused on any tab but `exercises`**, rather than being silently ignored.
+- **A detail segment is refused on any tab not in `DETAIL_TABS`**, rather than being silently
+  ignored. Two tabs carry one today: `exercises` names a lift, `sessions` a workout id -- the FNV-1a
+  content hash from the parser, so the same session keeps its address across a re-export of the same
+  data. Both hash functions read the one set, so a third list tab is one line and cannot leave the
+  parser and printer disagreeing.
 - **The in-app back link pops, it does not push.** `history.back()`, guarded by a ref recording
   whether this session pushed an entry of its own -- someone who landed straight on
   `#exercises/Bench Press` from a bookmark or a reload has nothing of ours behind them, so they get a
