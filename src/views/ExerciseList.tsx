@@ -14,7 +14,7 @@ export function ExerciseList({ onSelectExercise }: { onSelectExercise?: (name: s
   const [filter, setFilter] = useState('');
   const [onlyUnconfirmed, setOnlyUnconfirmed] = useState(false);
 
-  const summaries = useMemo(() => summariseAll(data.sets), [data.sets]);
+  const summaries = useMemo(() => summariseAll(data.scopedSets), [data.scopedSets]);
 
   const rows = useMemo(() => {
     const q = filter.trim().toLowerCase();

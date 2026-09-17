@@ -45,6 +45,7 @@ export function Dashboard({
   const totals = volume(a.sets);
   const counts = setCounts(a.sets);
   const trainedDays = a.days.filter((d) => d.hasWorkout).length;
+  const exerciseCount = new Set(a.sets.map((s) => s.canonicalName)).size;
 
   // Recency is against the last session in the corpus, never the wall clock --
   // the same rule the insights engine follows, and the only one that reads
@@ -82,7 +83,7 @@ export function Dashboard({
             size="lg"
             tone="accent"
           />
-          <Tile label="Sessions" value={data.workouts.length.toLocaleString()} size="lg" />
+          <Tile label="Sessions" value={data.scopedWorkouts.length.toLocaleString()} size="lg" />
           <Tile label="Sets" value={counts.total.toLocaleString()} size="lg" />
           <Tile
             label="Consistency"
@@ -94,17 +95,20 @@ export function Dashboard({
         <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 px-1 text-xs text-dim">
           <span>
             <span className="hud-label">Exercises</span>{' '}
-            <span className="num text-ink">{data.observed.size.toLocaleString()}</span>
+            <span className="num text-ink">{exerciseCount.toLocaleString()}</span>
           </span>
           <span>
             <span className="hud-label">Range</span>{' '}
             <span className="num text-ink">
-              {data.report.dateRange
-                ? formatDate(data.report.dateRange.from) +
+              {a.days.length > 0
+                ? formatDate(a.days[0]?.date ?? null) +
                   ' → ' +
-                  formatDate(data.report.dateRange.to)
+                  formatDate(a.days[a.days.length - 1]?.date ?? null)
                 : '-'}
             </span>
+            {data.scope !== null && (
+              <span className="text-faint"> (last {data.scope} months)</span>
+            )}
           </span>
         </div>
       </section>

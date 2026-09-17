@@ -26,8 +26,8 @@ export function SessionList({
   const [filter, setFilter] = useState('');
 
   const summaries = useMemo(
-    () => sessionSummaries(data.sets, data.workouts),
-    [data.sets, data.workouts],
+    () => sessionSummaries(data.scopedSets, data.scopedWorkouts),
+    [data.scopedSets, data.scopedWorkouts],
   );
 
   /**

@@ -115,6 +115,35 @@ describe('the Sessions tab', () => {
     expect(container.querySelector('[data-testid="lift"]')?.textContent).toBe(liftName);
   });
 
+  it('follows the date-range scope, and "all" restores the full list by identity', async () => {
+    let api: ReturnType<typeof useWorkoutData> | null = null;
+    function Probe() {
+      api = useWorkoutData();
+      return null;
+    }
+    await mount(
+      <>
+        <Sessions text={CSV} />
+        <Probe />
+      </>,
+    );
+    const data = api as unknown as ReturnType<typeof useWorkoutData>;
+    const all = container.querySelectorAll('tbody tr').length;
+    const fullSets = data.sets;
+    expect(data.scopedSets).toBe(fullSets);
+
+    await act(async () => data.setScope(3));
+    const scoped = container.querySelectorAll('tbody tr').length;
+    expect(scoped).toBeGreaterThan(0);
+    expect(scoped).toBeLessThan(all);
+    expect(text()).toContain(String(scoped) + ' of ' + String(scoped) + ' sessions');
+
+    await act(async () => data.setScope(null));
+    expect(container.querySelectorAll('tbody tr').length).toBe(all);
+    // Same array, so every memo keyed on it keeps its cache.
+    expect((api as unknown as ReturnType<typeof useWorkoutData>).scopedSets).toBe(fullSets);
+  });
+
   it('degrades to a not-found state on a stale id', async () => {
     function Stale() {
       const data = useWorkoutData();

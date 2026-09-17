@@ -24,6 +24,7 @@ import { guessMeta } from '../meta/guessMeta';
 import { seedFor } from '../meta/seedMeta';
 import { makeBodyweightResolver, type BodyweightResolver } from '../model/bodyweight';
 import { enrichSets, type EnrichedSet } from '../model/effectiveLoad';
+import { scopeSets, type ScopeMonths } from '../derive/buckets';
 import type { ValidationWarning } from '../model/schemas';
 import {
   loadAll,
@@ -60,6 +61,22 @@ export type WorkoutData = {
 
   workouts: Workout[];
   sets: EnrichedSet[];
+  /**
+   * The date-range scope: months back from the last session, or null for all.
+   * Ephemeral -- it is a way of looking, not a fact about the data, so it is
+   * neither persisted nor in the URL, and a reload shows everything again.
+   */
+  scope: ScopeMonths;
+  setScope(scope: ScopeMonths): void;
+  /**
+   * `sets` and `workouts` inside the scope. Every analytical view reads these;
+   * Import, the tagging tray and Compare read the full corpus, because
+   * metadata, guessing and a comparison against a whole second export are not
+   * things a date range should change. `scope === null` returns `sets` itself,
+   * so the memos downstream keep their cache.
+   */
+  scopedSets: EnrichedSet[];
+  scopedWorkouts: Workout[];
   report: ParseResult['report'];
   metaIndex: MetaIndex;
   bodyweightAt: BodyweightResolver;
@@ -105,6 +122,7 @@ export function WorkoutDataProvider({ children }: { children: ReactNode }) {
   const [meta, setMeta] = useState<Record<string, ExerciseMeta>>({});
   const [bodyweight, setBodyweightState] = useState<BodyweightEntry[]>([]);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const [scope, setScope] = useState<ScopeMonths>(null);
 
   // Read through a ref inside the auto-extension effect so `meta` is never a dep.
   const metaRef = useRef(meta);
@@ -239,6 +257,14 @@ export function WorkoutDataProvider({ children }: { children: ReactNode }) {
     [parsed.sets, metaIndex, bodyweightAt],
   );
 
+  // --- the scope, strictly below M5: filters by reference, never re-enriches --
+  const scopedSets = useMemo(() => scopeSets(sets, scope), [sets, scope]);
+  const scopedWorkouts = useMemo(() => {
+    if (scopedSets === sets) return parsed.workouts;
+    const keep = new Set(scopedSets.map((s) => s.workoutId));
+    return parsed.workouts.filter((w) => keep.has(w.id));
+  }, [scopedSets, sets, parsed.workouts]);
+
   const unconfirmedCount = useMemo(
     () => [...observed.keys()].filter((n) => meta[n]?.confirmed !== true).length,
     [observed, meta],
@@ -358,6 +384,10 @@ export function WorkoutDataProvider({ children }: { children: ReactNode }) {
     meta,
     workouts: parsed.workouts,
     sets,
+    scope,
+    setScope,
+    scopedSets,
+    scopedWorkouts,
     report: parsed.report,
     metaIndex,
     bodyweightAt,
