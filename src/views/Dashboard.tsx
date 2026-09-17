@@ -15,9 +15,12 @@ import type { GroupBy } from '../derive/balance';
 
 export function Dashboard({
   onSelectExercise,
+  onSelectSession,
   onGoToTray,
 }: {
   onSelectExercise: (name: string) => void;
+  /** A workout id, or null for the sessions list -- a day logged as two sessions. */
+  onSelectSession: (workoutId: string | null) => void;
   onGoToTray: () => void;
 }) {
   const data = useWorkoutData();
@@ -98,6 +101,7 @@ export function Dashboard({
           mode={calendarMode}
           clusterOf={a.clusterOfDay}
           clusterLabels={a.clusterLabels}
+          onSelectDay={(d) => onSelectSession(d.workoutIds.length === 1 ? (d.workoutIds[0] ?? null) : null)}
           actions={
             <Toggle
               value={calendarMode}

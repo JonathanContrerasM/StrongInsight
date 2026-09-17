@@ -260,6 +260,8 @@ export type DayCell = {
   key: string;
   hasWorkout: boolean;
   workoutCount: number;
+  /** Usually one; two when a day was logged as two sessions. The calendar links through these. */
+  workoutIds: string[];
   setCount: number;
   volumeKg: number;
   exercises: string[];
@@ -309,6 +311,7 @@ export function calendarDays(
       key,
       hasWorkout: items.length > 0,
       workoutCount: workoutIds.size,
+      workoutIds: [...workoutIds],
       setCount: items.length,
       volumeKg: volume(items).volumeKg,
       exercises: [...new Set(items.map((s) => s.canonicalName))],
