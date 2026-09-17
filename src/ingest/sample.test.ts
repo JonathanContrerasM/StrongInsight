@@ -11,6 +11,7 @@ import { cooccurrence } from '../derive/cooccurrence';
 import { sessionBests } from '../derive/series';
 import { segmentByGap } from '../derive/stats';
 import { volume } from '../derive';
+import { findings } from '../derive/insights';
 import { SAMPLE_FIXTURE } from '../test/fixtures';
 import type { ExerciseMeta } from '../model/types';
 
@@ -256,6 +257,19 @@ describe('sample fixture: derived metrics', () => {
     const segments = segmentByGap(sessionBests(squats), 28);
     // The generator inserts one gap longer than 28 days.
     expect(segments.length).toBeGreaterThan(1);
+  });
+
+  it('tells the planted climb from the planted plateau, and calls neither on the noise', () => {
+    const r = findings(enriched, lookup, { weekStartsOn: 1 });
+    const kinds = (name: string) =>
+      [...r.findings, ...r.positives].filter((f) => f.subject === name).map((f) => f.kind);
+    // Seated Row climbs 1.5 kg a week within +/-1.5 kg of noise.
+    expect(kinds('Seated Row (Cable)')).toEqual(['progressing-lift']);
+    // Leg Press sits at 110 kg within +/-2 kg: flat, provably.
+    expect(kinds('Leg Press')).toEqual(['stalled-lift']);
+    // Everything else jitters by a quarter of its base and must stay uncalled.
+    expect(kinds('Bench Press (Barbell)')).toEqual([]);
+    expect(kinds('Squat (Barbell)')).toEqual([]);
   });
 
   it('reports per-session volume consistent with the shared helper', () => {

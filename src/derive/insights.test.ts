@@ -286,24 +286,63 @@ describe('stalled lifts', () => {
 
   it('flags a lift whose estimated 1RM is falling', () => {
     const r = run(progression((i) => 100 - i * 1.5));
-    expect(of(r, 'stalled-lift').map((f) => f.subject)).toContain('Bench Press (Barbell)');
+    expect(of(r, 'regressed-lift').map((f) => f.subject)).toContain('Bench Press (Barbell)');
   });
 
   it('says nothing about a lift that is progressing', () => {
     const r = run(progression((i) => 100 + i * 1.5));
-    expect(of(r, 'stalled-lift')).toEqual([]);
+    expect(of(r, 'regressed-lift')).toEqual([]);
   });
 
   it('says nothing about a flat lift with too much scatter to call', () => {
     // Noisy but trendless: the fit exists, its slope is not distinguishable
-    // from zero, and the engine must stay quiet rather than pick a direction.
+    // from zero, and the engine must stay quiet rather than pick a direction --
+    // neither "going backwards" nor "plateaued".
     const r = run(progression((i) => 100 + (i % 3) * 6 - (i % 2) * 5));
+    expect(of(r, 'regressed-lift')).toEqual([]);
     expect(of(r, 'stalled-lift')).toEqual([]);
+    expect(r.positives).toEqual([]);
+  });
+
+  it('calls a plateau only when the gain is provably below a meaningful one', () => {
+    // Tight noise around a flat line: the slope's error bar excludes 2.5% gain.
+    const flat = run(progression((i) => 100 + (i % 2) * 0.5));
+    expect(of(flat, 'stalled-lift').map((f) => f.subject)).toEqual(['Bench Press (Barbell)']);
+    expect(of(flat, 'stalled-lift')[0]?.title).toContain('plateaued');
+    expect(of(flat, 'regressed-lift')).toEqual([]);
+
+    // The same noise on a slowly rising line: not flat, so not a plateau.
+    const rising = run(progression((i) => 100 + i * 0.75 + (i % 2) * 0.5));
+    expect(of(rising, 'stalled-lift')).toEqual([]);
+  });
+
+  it('reports a lift that is identical every session as a fact', () => {
+    const r = run(progression(() => 100));
+    const [f] = of(r, 'stalled-lift');
+    expect(f?.title).toContain('has not moved');
+    expect(f?.evidence.z).toBeNull();
+  });
+
+  it('lists a provably climbing lift under positives, through the same gate', () => {
+    const r = run(progression((i) => 100 + i * 1.5 + (i % 2) * 0.5));
+    expect(r.positives.map((f) => f.kind)).toContain('progressing-lift');
+    expect(r.findings.map((f) => f.kind)).not.toContain('progressing-lift');
+    // A positive is a pass that cleared the bar, so it is inside notAdverse.
+    expect(r.notAdverse).toBeGreaterThanOrEqual(r.positives.length);
+  });
+
+  it('never lists the same subject as both a weakness and a positive', () => {
+    const r = run([
+      ...progression((i) => 100 + i * 1.5 + (i % 2) * 0.5),
+      ...progression((i) => 100 - i * 1.5).map((row) => ({ ...row, exercise: 'Squat (Barbell)' })),
+    ]);
+    const bad = new Set(r.findings.map((f) => f.subject).filter(Boolean));
+    for (const p of r.positives) if (p.subject) expect(bad.has(p.subject)).toBe(false);
   });
 
   it('refuses a lift with too few sessions to fit', () => {
     const r = run(progression((i) => 100 - i * 2, 5));
-    expect(of(r, 'stalled-lift')).toEqual([]);
+    expect(of(r, 'regressed-lift')).toEqual([]);
     expect(r.skippedRules).toContain('stalled-lift');
   });
 
@@ -321,7 +360,7 @@ describe('stalled lifts', () => {
         reps: 5,
       });
     }
-    expect(of(run(rows), 'stalled-lift')).toEqual([]);
+    expect(of(run(rows), 'regressed-lift')).toEqual([]);
   });
 });
 
@@ -433,7 +472,7 @@ describe.skipIf(!present)('the reference corpus', () => {
 
   it('never reports a lift as both abandoned and stalled', () => {
     const abandoned = new Set(of(r, 'abandoned-lift').map((f) => f.subject));
-    for (const f of of(r, 'stalled-lift')) expect(abandoned.has(f.subject)).toBe(false);
+    for (const f of of(r, 'regressed-lift')) expect(abandoned.has(f.subject)).toBe(false);
   });
 
   it('discards a real share of what it tested', () => {
