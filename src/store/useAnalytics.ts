@@ -7,6 +7,7 @@ import { habitMap, repDensity, muscleGroup } from '../derive/profile';
 import { cooccurrence, type CooccurrenceResult } from '../derive/cooccurrence';
 import { findings, type FindingSet } from '../derive/insights';
 import { records, recordsPerBucket, type RecordEvent } from '../derive/records';
+import { muscleFrequency } from '../derive/frequency';
 import type { ExerciseMeta } from '../model/types';
 import type { Granularity } from '../derive/buckets';
 
@@ -113,6 +114,11 @@ export function useAnalytics({ granularity, groupBy }: AnalyticsOptions) {
 
   const unconfirmedSets = useMemo(() => sets.filter((s) => !s.metaConfirmed).length, [sets]);
 
+  const frequency = useMemo(
+    () => muscleFrequency(sets, lookup, settings.weekStartsOn),
+    [sets, lookup, settings.weekStartsOn],
+  );
+
   /** Every personal record, ascending. Depends on load, hence on metadata. */
   const events: RecordEvent[] = useMemo(() => records(sets), [sets]);
 
@@ -156,6 +162,7 @@ export function useAnalytics({ granularity, groupBy }: AnalyticsOptions) {
     insights,
     records: events,
     recordsMonthly,
+    frequency,
     lookup,
   };
 }

@@ -7,6 +7,7 @@ import { HabitHeatmap, MuscleHeatmap, type MuscleScale } from '../viz/Heatmaps';
 import { StackedVolume, BalanceChart } from '../viz/TimeSeries';
 import { RepHistogram } from '../viz/Distributions';
 import { RecordsChart } from '../viz/Records';
+import { FrequencyTable } from '../viz/Frequency';
 import { RecordList } from './RecordList';
 import { ChartCard, Toggle, UnverifiedChip } from '../charts/parts';
 import { Button, EmptyState, Notice, SectionLabel, Tile } from '../ui/primitives';
@@ -311,7 +312,14 @@ export function Dashboard({
 
       <section>
         <SectionLabel>Habits</SectionLabel>
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+          <ChartCard
+            title="How often each group is trained"
+            subtitle="Push, pull, legs and core: sessions a week, the usual gap, and when it last came up."
+          >
+            <FrequencyTable rows={a.frequency} />
+          </ChartCard>
+
           <ChartCard
             title="Rep zones"
             subtitle="Every working set by rep count. Peaks are the schemes you actually run."

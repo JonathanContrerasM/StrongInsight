@@ -26,6 +26,8 @@ import {
 import { RepHistogram, SetPositionChart } from './Distributions';
 import { Sparkline, WeekdayBars } from './Insights';
 import { RecordsChart } from './Records';
+import { FrequencyTable } from './Frequency';
+import { muscleFrequency } from '../derive/frequency';
 import { records, recordsPerBucket } from '../derive/records';
 import { PairedMuscleShare, PairedProgression, PairedRepBars, RatioBars } from './Pairs';
 import { compareCorpora, type Comparison } from '../derive/compare';
@@ -233,6 +235,14 @@ describe('charts mount on the sample corpus', () => {
 
   it('rep histogram', () => {
     expect(render(<RepHistogram bins={repDensity(sets)} />).querySelectorAll('svg').length).toBe(1);
+  });
+
+  it('frequency table, one row per group', () => {
+    const el = render(<FrequencyTable rows={muscleFrequency(sets, lookup, 1)} />);
+    expect(el.querySelectorAll('tbody tr').length).toBe(4);
+    expect(el.querySelectorAll('[role="progressbar"]').length).toBe(4);
+    expect(el.textContent).toContain('Push');
+    render(<FrequencyTable rows={muscleFrequency(EMPTY, lookup, 1)} />);
   });
 
   it('progression chart in relative mode', () => {
