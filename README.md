@@ -70,8 +70,8 @@ rather than folded into an average.
 | **Sessions** | Every workout, newest first, tagged with what it actually trained — one tag or several, judged from its own working sets rather than from the recovered split; behind any row (or any calendar day) the session as logged: every exercise in order, every set with its effective load, reps, e1RM, and RPE, rest and notes where they were recorded. |
 | **Compare** | A second person's export and bodyweight history, compared as rates rather than totals, with an explicit list of what was excluded and why. Stored on your device, removable in one click. |
 | **Tagging tray** | The queue of exercises whose metadata is still a guess, highest set count first. Anything unconfirmed renders with a visible `unverified` marker wherever it appears. |
-| **Import** | An ingest report rather than a spinner: row counts, the W/D split, every unrecognised token with its verbatim value and file line, and the traps found in your own data. |
-| **Settings** | Units, week start, bodyweight entries and measurements import, theme, metadata export/import, archive rollback, reset. |
+| **Import** | Your export and your bodyweight history together, since neither reads without the other; then an ingest report rather than a spinner: row counts, the W/D split, every unrecognised token with its verbatim value and file line, and the traps found in your own data. |
+| **Settings** | Units, week start, theme, metadata export/import, archive rollback, reset. |
 | **Range** | A 3 / 6 / 12 month / all switch in the header, counted back from your last session rather than from today, that every chart and every finding on the analytical tabs follows together. |
 
 <table>
@@ -140,7 +140,7 @@ import from `src/meta/**` or `src/store/**`, or every keystroke in the tagging t
 6,517 rows. And **`derive/` is pure**: every function is a plain `(sets, metaIndex) => T` with no
 React and no IO, which is what makes all of it trivially testable.
 
-**463 tests across 25 files.** The suites measured from the personal export skip automatically when
+**466 tests across 26 files.** The suites measured from the personal export skip automatically when
 it is absent, so a fresh clone is green. CI runs `typecheck`, `test` and `build` on every push and
 pull request, on a clean checkout — a green badge means a fresh clone is green too.
 
