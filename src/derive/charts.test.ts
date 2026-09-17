@@ -326,6 +326,40 @@ describe('series', () => {
     expect(smoothed[1]?.prE1rmKg).toBeGreaterThanOrEqual(smoothed[0]?.prE1rmKg ?? 0);
   });
 
+  it('tells getting heavier from getting stronger, as a multiple of bodyweight', () => {
+    // Same pull up, same +10 kg, but the lifter weighs 85 in March against 80 in
+    // January. Absolute e1RM goes up; relative e1RM must not.
+    const pullups = enrich(
+      parseCsv(
+        makeCsv([
+          { date: '2024-01-08 10:00:00', exercise: 'Pull Up', setOrder: 1, weight: 10, reps: 5 },
+          { date: '2024-03-08 10:00:00', exercise: 'Pull Up', setOrder: 1, weight: 10, reps: 5 },
+        ]),
+      ).sets,
+      { 'Pull Up': meta('Pull Up', { loadType: 'bodyweight-plus' }) },
+      [
+        { date: '2024-01-08', kg: 80 },
+        { date: '2024-03-08', kg: 85 },
+      ],
+    );
+    const s = smoothSessionBests(sessionBests(pullups), 1);
+    expect(s[0]?.bodyweightKg).toBe(80);
+    expect(s[1]?.bodyweightKg).toBeCloseTo(85, 1);
+    expect(s[1]?.bestE1rmKg).toBeGreaterThan(s[0]?.bestE1rmKg ?? 0);
+    // 90 x (1 + 5/30) / 80 against 95 x (1 + 5/30) / 85: the ratio moves by the
+    // added load's share only, and DOWN, since 10 kg is a smaller fraction of 85.
+    expect(s[1]?.relativeE1rm).toBeLessThan(s[0]?.relativeE1rm ?? 0);
+    expect(s[0]?.relativeE1rm).toBeCloseTo((90 * (1 + 5 / 30)) / 80, 6);
+  });
+
+  it('takes the bodyweight from the resolver on a barbell lift, which carries none', () => {
+    const sets = build(rows, m);
+    expect(sessionBests(sets)[0]?.bodyweightKg).toBeNull();
+    const withBw = sessionBests(sets, () => 80);
+    expect(withBw[0]?.bodyweightKg).toBe(80);
+    expect(smoothSessionBests(withBw, 1)[0]?.relativeE1rm).toBeCloseTo((withBw[0]?.bestE1rmKg ?? 0) / 80, 6);
+  });
+
   it('reports per-session volume that matches the shared volume() rules', () => {
     const sets = build(rows, m);
     const bests = sessionBests(sets);

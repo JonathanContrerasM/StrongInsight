@@ -99,6 +99,12 @@ export type SessionBest = {
   /** Bodyweight and added load behind `heaviestKg`, on a bodyweight-relative lift. */
   heaviestParts: LoadParts | null;
   /**
+   * The lifter's bodyweight on the day, for relative strength. From the set on
+   * a bodyweight-relative lift; from the resolver handed in on any other, since
+   * a barbell set deliberately carries none.
+   */
+  bodyweightKg: number | null;
+  /**
    * Total volume for this exercise in this session.
    *
    * Deliberately a separate series from `heaviestKg`, because the two genuinely
@@ -123,7 +129,10 @@ export type SessionBest = {
  * Indexing by session, then smoothing across sessions, keeps a three-week layoff
  * from being filled with imaginary progress.
  */
-export function sessionBests(sets: EnrichedSet[]): SessionBest[] {
+export function sessionBests(
+  sets: EnrichedSet[],
+  bodyweightAt: (date: Date) => number | null = () => null,
+): SessionBest[] {
   const byWorkout = new Map<string, EnrichedSet[]>();
   for (const s of sets) {
     const list = byWorkout.get(s.workoutId);
@@ -139,12 +148,14 @@ export function sessionBests(sets: EnrichedSet[]): SessionBest[] {
     let bestE1rm: number | null = null;
     let heaviest: number | null = null;
     let heaviestSet: EnrichedSet | null = null;
+    let bodyweight: number | null = null;
     let skipped = 0;
     const repCounts = new Map<number, number>();
     let date = first.date;
 
     for (const s of list) {
       if (s.date < date) date = s.date;
+      if (bodyweight === null && s.bodyweightKg !== null) bodyweight = s.bodyweightKg;
       const est = e1rm(s);
       if (est === null) skipped++;
       else if (bestE1rm === null || est > bestE1rm) bestE1rm = est;
@@ -169,6 +180,7 @@ export function sessionBests(sets: EnrichedSet[]): SessionBest[] {
       bestE1rmKg: bestE1rm,
       heaviestKg: heaviest,
       heaviestParts: heaviestSet ? loadParts(heaviestSet) : null,
+      bodyweightKg: bodyweight ?? bodyweightAt(date),
       // Uses the shared volume() helper so the exclusion rules (unloaded sets,
       // unresolvable load, zero reps) match every other volume figure in the app.
       volumeKg: volume(list).volumeKg,
@@ -185,16 +197,34 @@ export type SmoothedSessionBest = SessionBest & {
   smoothedE1rmKg: number | null;
   /** Personal best to date -- what users usually mean by "getting stronger". */
   prE1rmKg: number | null;
+  /**
+   * Best e1RM as a multiple of bodyweight, and its own smoothing and running
+   * best. Absolute e1RM on a pull up rises when the lifter gains weight; this
+   * is the series that does not.
+   */
+  relativeE1rm: number | null;
+  smoothedRelative: number | null;
+  prRelative: number | null;
 };
 
 export function smoothSessionBests(points: SessionBest[], window = 5): SmoothedSessionBest[] {
   const values = points.map((p) => p.bestE1rmKg);
   const smoothed = rollingMedian(values, window);
   const pr = runningMax(values);
+  const relative = points.map((p) =>
+    p.bestE1rmKg !== null && p.bodyweightKg !== null && p.bodyweightKg > 0
+      ? p.bestE1rmKg / p.bodyweightKg
+      : null,
+  );
+  const smoothedRel = rollingMedian(relative, window);
+  const prRel = runningMax(relative);
   return points.map((p, i) => ({
     ...p,
     smoothedE1rmKg: smoothed[i] ?? null,
     prE1rmKg: pr[i] ?? null,
+    relativeE1rm: relative[i] ?? null,
+    smoothedRelative: smoothedRel[i] ?? null,
+    prRelative: prRel[i] ?? null,
   }));
 }
 
