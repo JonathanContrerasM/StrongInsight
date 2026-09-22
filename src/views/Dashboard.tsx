@@ -195,6 +195,18 @@ export function Dashboard({
             size="lg"
           />
           {a.streak.trailingPartial && (
+          <Tile
+            label="Sessions a week"
+            value={a.streak.sessionsPerWeek.toFixed(1)}
+            hint={
+              a.streak.sessions +
+              (a.streak.sessions === 1 ? ' session' : ' sessions') +
+              ' across ' +
+              a.streak.weeks +
+              (a.streak.weeks === 1 ? ' week' : ' weeks')
+            }
+            size="lg"
+          />
             <p className="col-span-2 self-center px-1 text-xs text-faint">
               The export ends mid-week; that week is not counted against the streak.
             </p>

@@ -27,6 +27,10 @@ export type Streaks = {
   minSessions: number;
   /** Weeks in the span, empty ones included. */
   weeks: number;
+  /** Distinct sessions in the span. */
+  sessions: number;
+  /** sessions / weeks: the average, empty weeks included. 0 when there is no data. */
+  sessionsPerWeek: number;
   /** True when the corpus ends mid-week and that week did not (yet) qualify. */
   trailingPartial: boolean;
 };
@@ -38,6 +42,8 @@ const EMPTY: Streaks = {
   longestFrom: null,
   minSessions: STREAK_MIN_SESSIONS,
   weeks: 0,
+  sessions: 0,
+  sessionsPerWeek: 0,
   trailingPartial: false,
 };
 
@@ -51,6 +57,8 @@ export function streaks(
 
   const counts = weeks.map((w) => new Set(w.items.map((s) => s.workoutId)).size);
   const trained = counts.map((c) => c >= minSessions);
+  // A workout never straddles two buckets, so the per-week distinct counts sum cleanly.
+  const sessions = counts.reduce((a, b) => a + b, 0);
 
   let last: Date | null = null;
   for (const s of sets) if (last === null || s.date > last) last = s.date;
@@ -88,6 +96,8 @@ export function streaks(
     longestFrom,
     minSessions,
     weeks: weeks.length,
+    sessions,
+    sessionsPerWeek: sessions / weeks.length,
     trailingPartial,
   };
 }
