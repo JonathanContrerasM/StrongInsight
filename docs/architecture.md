@@ -57,11 +57,15 @@ New exercise names are auto-extended into the metadata map by one effect, with t
 [M6] scopedSets = useMemo(scopeSets(sets, scope), [sets, scope])   <- filters by reference
 ```
 
-The header's range control (3 / 6 / 12 months / all) is one piece of ephemeral provider state.
-It is a way of looking, not a fact about the data, so it is neither persisted nor in the URL and a
-reload shows everything again. `scopeSets` filters the enriched array -- it never re-parses or
-re-enriches -- and returns `sets` *by identity* for "all", so every memo keyed on the array keeps
-its cache when the range is cleared.
+The header's range control (3 / 6 / 12 months / all / a custom from-to window) is one piece of
+provider state. It is a way of looking, not a fact about the data, so it is never persisted in
+IndexedDB; its only home between looks is the URL hash (`#dashboard?range=3m`,
+`#sessions?range=2025-01-01..2025-03-31`), which `App` writes with `replaceState` on every change
+and reads on mount and on `hashchange`. A bare `#dashboard` still shows everything. `scopeSets`
+filters the enriched array -- it never re-parses or re-enriches -- and returns `sets` *by identity*
+for "all", so every memo keyed on the array keeps its cache when the range is cleared. A custom
+window is whole local days, both ends inclusive, and the picker only lets days with a session be
+chosen.
 
 Two decisions worth knowing:
 

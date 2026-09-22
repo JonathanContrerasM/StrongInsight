@@ -98,6 +98,42 @@ export function daysBetween(a: Date, b: Date): number {
 
 /** Months of history to look at, counted back from the last session; null is all of it. */
 export type ScopeMonths = 3 | 6 | 12 | null;
+/** An explicit window, both days inclusive; the times on the dates are ignored. */
+export type ScopeRange = { from: Date; to: Date };
+export type Scope = ScopeMonths | ScopeRange;
+
+export function isScopeRange(scope: Scope): scope is ScopeRange {
+  return typeof scope === 'object' && scope !== null;
+}
+
+/**
+ * The scope as the URL carries it: nothing for all, '3m' for a preset, and
+ * 'YYYY-MM-DD..YYYY-MM-DD' for a custom window. `scopeFromParam` is the
+ * inverse and never throws: a hand-edited or stale value reads as all.
+ */
+export function scopeToParam(scope: Scope): string | null {
+  if (scope === null) return null;
+  if (isScopeRange(scope)) return bucketKey(scope.from, 'day') + '..' + bucketKey(scope.to, 'day');
+  return scope + 'm';
+}
+
+export function scopeFromParam(param: string | null | undefined): Scope {
+  if (!param) return null;
+  const months = /^(\d+)m$/.exec(param);
+  if (months) {
+    const n = Number(months[1]);
+    return SCOPE_OPTIONS.some((o) => o.value === n) ? (n as ScopeMonths) : null;
+  }
+  const m = /^(\d{4})-(\d{2})-(\d{2})\.\.(\d{4})-(\d{2})-(\d{2})$/.exec(param);
+  if (!m) return null;
+  const day = (y: string, mo: string, d: string) => new Date(Number(y), Number(mo) - 1, Number(d));
+  const a = day(m[1]!, m[2]!, m[3]!);
+  const b = day(m[4]!, m[5]!, m[6]!);
+  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return null;
+  // A month of 13 rolls over rather than failing; refuse anything that did.
+  if (a.getMonth() !== Number(m[2]) - 1 || b.getMonth() !== Number(m[5]) - 1) return null;
+  return a <= b ? { from: a, to: b } : { from: b, to: a };
+}
 export const SCOPE_OPTIONS: ReadonlyArray<{ value: ScopeMonths; label: string }> = [
   { value: 3, label: '3 m' },
   { value: 6, label: '6 m' },
@@ -119,19 +155,27 @@ export function monthsBefore(d: Date, months: number): Date {
 }
 
 /**
- * The sets inside the scope, anchored on the LAST SESSION rather than today.
- * That is the same rule the insights engine follows for recency, and the only
- * one that behaves against an export from three months ago -- anchored on the
- * wall clock, "last 3 months" of such a file would be empty.
+ * The sets inside the scope. A months scope is anchored on the LAST SESSION
+ * rather than today. That is the same rule the insights engine follows for
+ * recency, and the only one that behaves against an export from three months
+ * ago -- anchored on the wall clock, "last 3 months" of such a file would be
+ * empty. A custom range is exactly what it says: whole local days, both ends
+ * inclusive, wherever the corpus ends.
  *
  * `null` returns the input by identity, so `all` costs nothing and every memo
  * keyed on the array keeps its cache.
  */
-export function scopeSets<T extends { date: Date }>(sets: T[], months: ScopeMonths): T[] {
-  if (months === null || sets.length === 0) return sets;
+export function scopeSets<T extends { date: Date }>(sets: T[], scope: Scope): T[] {
+  if (scope === null || sets.length === 0) return sets;
+  if (isScopeRange(scope)) {
+    const from = startOfDay(scope.from);
+    const end = startOfDay(scope.to);
+    end.setDate(end.getDate() + 1);
+    return sets.filter((s) => s.date >= from && s.date < end);
+  }
   let last = sets[0]!.date;
   for (const s of sets) if (s.date > last) last = s.date;
-  const cutoff = monthsBefore(last, months);
+  const cutoff = monthsBefore(last, scope);
   return sets.filter((s) => s.date >= cutoff);
 }
 

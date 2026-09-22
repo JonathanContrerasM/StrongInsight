@@ -15,6 +15,7 @@ import { isBodyweightRelative } from '../model/effectiveLoad';
 import { volume, setCounts, daysBetween } from '../derive';
 import { formatDate, formatVolume } from '../format';
 import type { Granularity } from '../derive/buckets';
+import { describeScope } from './ScopeControl';
 import type { GroupBy } from '../derive/balance';
 
 /** "Recent" on the records rail, in days before the last session. */
@@ -127,7 +128,7 @@ export function Dashboard({
                 : '-'}
             </span>
             {data.scope !== null && (
-              <span className="text-faint"> (last {data.scope} months)</span>
+              <span className="text-faint"> ({describeScope(data.scope)})</span>
             )}
           </span>
         </div>
@@ -194,7 +195,6 @@ export function Dashboard({
             hint={a.streak.longestFrom ? 'from ' + formatDate(a.streak.longestFrom) : undefined}
             size="lg"
           />
-          {a.streak.trailingPartial && (
           <Tile
             label="Sessions a week"
             value={a.streak.sessionsPerWeek.toFixed(1)}
@@ -207,6 +207,7 @@ export function Dashboard({
             }
             size="lg"
           />
+          {a.streak.trailingPartial && (
             <p className="col-span-2 self-center px-1 text-xs text-faint">
               The export ends mid-week; that week is not counted against the streak.
             </p>

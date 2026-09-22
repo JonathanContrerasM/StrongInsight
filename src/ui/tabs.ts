@@ -63,9 +63,18 @@ export const DISABLED_HINT = 'Import a CSV first';
 // Note what this deliberately does NOT do: it does not bypass `tabEnabled`.
 // A link to `#compare` with nothing imported still falls through the same guard
 // a click would, and lands on Import.
+//
+// The date-range scope rides along as a query on the hash -- `#sessions?range=3m`,
+// `#dashboard?range=2025-01-01..2025-03-31` -- so a custom window survives a
+// reload and can be sent to someone. This module does not know what a range
+// means; it carries the string and leaves the parsing to `derive/buckets`.
 
-/** A tab, plus -- on the tabs in DETAIL_TABS -- the lift or session being looked at. */
-export type Route = { tab: Tab; detail: string | null };
+/**
+ * A tab, plus -- on the tabs in DETAIL_TABS -- the lift or session being looked
+ * at, plus the range parameter when the hash carried one (absent otherwise, so
+ * a route without one still equals `{ tab, detail }`).
+ */
+export type Route = { tab: Tab; detail: string | null; range?: string };
 
 /**
  * The tabs that are a list with something openable behind it. `exercises`
@@ -89,7 +98,21 @@ export const DEFAULT_ROUTE: Route = { tab: 'dashboard', detail: null };
  * Anything unrecognised is `null`, never a throw, so the caller keeps its default.
  */
 export function routeFromHash(hash: string): Route | null {
-  const raw = hash.replace(/^#/, '');
+  const full = hash.replace(/^#/, '');
+  // The query comes off first; it is optional, and a broken one is dropped
+  // rather than taking the tab down with it.
+  const q = full.indexOf('?');
+  const raw = q === -1 ? full : full.slice(0, q);
+  let range: string | undefined;
+  if (q !== -1) {
+    try {
+      range = new URLSearchParams(full.slice(q + 1)).get('range') ?? undefined;
+    } catch {
+      range = undefined;
+    }
+  }
+  const withRange = (route: Route | null): Route | null =>
+    route && range ? { ...route, range } : route;
   if (raw === '') return null;
 
   // First slash only. The name is percent-encoded on the way out, which turns
@@ -98,25 +121,25 @@ export function routeFromHash(hash: string): Route | null {
   const id = cut === -1 ? raw : raw.slice(0, cut);
   const tab = TABS.find((t) => t.id === id)?.id;
   if (!tab) return null;
-  if (cut === -1) return { tab, detail: null };
+  if (cut === -1) return withRange({ tab, detail: null });
 
   // A detail segment is meaningful only on a list tab. Anywhere else the route
   // is malformed rather than "that tab, segment ignored".
   if (!DETAIL_TABS.has(tab)) return null;
 
   const rest = raw.slice(cut + 1);
-  if (rest === '') return { tab, detail: null };
+  if (rest === '') return withRange({ tab, detail: null });
   try {
     // Throws URIError on a mangled escape like `%zz`. A hand-edited URL must
     // degrade to the default route, not take the app down on mount.
-    return { tab, detail: decodeURIComponent(rest) };
+    return withRange({ tab, detail: decodeURIComponent(rest) });
   } catch {
     return null;
   }
 }
 
 /** The inverse. Kept beside its partner so the two cannot drift. */
-export function hashForRoute(tab: Tab, detail: string | null = null): string {
-  if (DETAIL_TABS.has(tab) && detail) return '#' + tab + '/' + encodeURIComponent(detail);
-  return '#' + tab;
+export function hashForRoute(tab: Tab, detail: string | null = null, range: string | null = null): string {
+  const path = DETAIL_TABS.has(tab) && detail ? '#' + tab + '/' + encodeURIComponent(detail) : '#' + tab;
+  return range ? path + '?range=' + encodeURIComponent(range) : path;
 }

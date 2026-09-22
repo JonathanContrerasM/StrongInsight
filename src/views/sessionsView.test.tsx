@@ -183,6 +183,14 @@ describe('the Sessions tab', () => {
     expect(scoped).toBeLessThan(all);
     expect(text()).toContain(String(scoped) + ' of ' + String(scoped) + ' sessions');
 
+    // A custom window narrows the list the same way; the fixture spans well over a month.
+    const last = data.report.dateRange!.to;
+    const from = new Date(last.getFullYear(), last.getMonth(), last.getDate() - 30);
+    await act(async () => data.setScope({ from, to: last }));
+    const custom = container.querySelectorAll('tbody tr').length;
+    expect(custom).toBeGreaterThan(0);
+    expect(custom).toBeLessThan(all);
+
     await act(async () => data.setScope(null));
     expect(container.querySelectorAll('tbody tr').length).toBe(all);
     // Same array, so every memo keyed on it keeps its cache.
