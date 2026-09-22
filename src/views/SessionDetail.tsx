@@ -165,6 +165,13 @@ export function SessionDetail({
         <SectionLabel>In order</SectionLabel>
         {session.blocks.map((block) => {
           const meta = data.meta[block.name];
+          // Block totals beside the set count: every set counts toward reps, as it
+          // does toward volume; e1rm() already drops the sets it cannot estimate.
+          const totalReps = block.sets.reduce((n, s) => n + (s.reps ?? 0), 0);
+          const bestE1rm = block.sets.reduce<number | null>((best, s) => {
+            const est = e1rm(s);
+            return est !== null && (best === null || est > best) ? est : best;
+          }, null);
           return (
             <Card
               key={block.name}
@@ -194,6 +201,8 @@ export function SessionDetail({
                   {block.volume.volumeKg > 0 && (
                     <> &middot; {formatVolume(block.volume.volumeKg, unit)}</>
                   )}
+                  {totalReps > 0 && <> &middot; {totalReps} reps</>}
+                  {bestE1rm !== null && <> &middot; e1RM {formatWeight(bestE1rm, unit, 0)}</>}
                 </span>
               }
             >

@@ -15,6 +15,7 @@ import { isBodyweightRelative } from '../model/effectiveLoad';
 import { volume, setCounts, daysBetween } from '../derive';
 import { formatDate, formatVolume } from '../format';
 import type { Granularity } from '../derive/buckets';
+import { describeScope } from './ScopeControl';
 import type { GroupBy } from '../derive/balance';
 
 /** "Recent" on the records rail, in days before the last session. */
@@ -84,7 +85,7 @@ export function Dashboard({
         >
           Overview
         </SectionLabel>
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <Tile
             label="Total volume"
             value={formatVolume(totals.volumeKg, unit)}
@@ -127,7 +128,7 @@ export function Dashboard({
                 : '-'}
             </span>
             {data.scope !== null && (
-              <span className="text-faint"> (last {data.scope} months)</span>
+              <span className="text-faint"> ({describeScope(data.scope)})</span>
             )}
           </span>
         </div>
@@ -135,7 +136,7 @@ export function Dashboard({
 
       <section className="space-y-4">
         <SectionLabel>Records</SectionLabel>
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <Tile
             label={'Records, last ' + RECENT_DAYS + ' days'}
             value={recentRecords.length.toLocaleString()}
@@ -176,7 +177,7 @@ export function Dashboard({
 
       <section className="space-y-4">
         <SectionLabel>Consistency</SectionLabel>
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <Tile
             label="Current streak"
             value={a.streak.current + (a.streak.current === 1 ? ' week' : ' weeks')}
@@ -192,6 +193,18 @@ export function Dashboard({
             label="Longest streak"
             value={a.streak.longest + (a.streak.longest === 1 ? ' week' : ' weeks')}
             hint={a.streak.longestFrom ? 'from ' + formatDate(a.streak.longestFrom) : undefined}
+            size="lg"
+          />
+          <Tile
+            label="Sessions a week"
+            value={a.streak.sessionsPerWeek.toFixed(1)}
+            hint={
+              a.streak.sessions +
+              (a.streak.sessions === 1 ? ' session' : ' sessions') +
+              ' across ' +
+              a.streak.weeks +
+              (a.streak.weeks === 1 ? ' week' : ' weeks')
+            }
             size="lg"
           />
           {a.streak.trailingPartial && (

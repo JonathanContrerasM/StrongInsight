@@ -54,7 +54,7 @@ export function Improvements({ onSelectExercise }: { onSelectExercise?: (name: s
         >
           What the data supports
         </SectionLabel>
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <Tile label="Clear findings" value={clear.length} size="lg" tone="accent" />
           <Tile label="Suggestive" value={suggestive.length} hint="weaker evidence" />
           <Tile label="Patterns tested" value={insights.testsRun} />

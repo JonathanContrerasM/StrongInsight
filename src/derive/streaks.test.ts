@@ -60,4 +60,14 @@ describe('streaks', () => {
     expect(r.longest).toBe(0);
     expect(r.longestFrom).toBeNull();
   });
+
+  it('averages sessions over every week in the span, empty ones included', () => {
+    const r = run([3, 0, 2, 1]);
+    expect(r.sessions).toBe(6);
+    expect(r.weeks).toBe(4);
+    expect(r.sessionsPerWeek).toBeCloseTo(1.5);
+    const none = run([]);
+    expect(none.sessions).toBe(0);
+    expect(none.sessionsPerWeek).toBe(0);
+  });
 });

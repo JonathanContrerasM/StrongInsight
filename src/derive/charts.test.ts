@@ -7,6 +7,8 @@ import {
   daysBetween,
   monthsBefore,
   scopeSets,
+  scopeFromParam,
+  scopeToParam,
 } from './buckets';
 import {
   median,
@@ -68,6 +70,34 @@ describe('scopeSets', () => {
     expect(scopeSets(sets, null)).toBe(sets);
     const none: Array<{ date: Date }> = [];
     expect(scopeSets(none, 3)).toBe(none);
+  });
+
+  it('keeps whole days at both ends of a custom range, wherever the corpus ends', () => {
+    const sets = [at('2023-01-10'), at('2023-03-01'), at('2023-03-15'), at('2023-04-30'), at('2023-12-10')];
+    // Dates carry a time of day, and the range's dates carry another; neither matters.
+    const range = { from: new Date(2023, 2, 1, 23, 59), to: new Date(2023, 3, 30, 0, 1) };
+    expect(scopeSets(sets, range).map((s) => s.date.getMonth())).toEqual([2, 2, 3]);
+    expect(scopeSets(sets, { from: new Date(2023, 3, 30), to: new Date(2023, 3, 30) })).toHaveLength(1);
+    expect(scopeSets(sets, { from: new Date(2024, 0, 1), to: new Date(2024, 1, 1) })).toHaveLength(0);
+  });
+
+  it('prints and parses the URL form of every kind of scope', () => {
+    expect(scopeToParam(null)).toBeNull();
+    expect(scopeToParam(6)).toBe('6m');
+    expect(scopeToParam({ from: new Date(2025, 0, 1, 9), to: new Date(2025, 2, 31, 18) })).toBe(
+      '2025-01-01..2025-03-31',
+    );
+    expect(scopeFromParam(null)).toBeNull();
+    expect(scopeFromParam('12m')).toBe(12);
+    expect(scopeFromParam('2025-01-01..2025-03-31')).toEqual({ from: new Date(2025, 0, 1), to: new Date(2025, 2, 31) });
+    // Reversed is a slip, ordered on the way in.
+    expect(scopeFromParam('2025-03-31..2025-01-01')).toEqual({ from: new Date(2025, 0, 1), to: new Date(2025, 2, 31) });
+  });
+
+  it('reads anything it did not write as "all"', () => {
+    for (const bad of ['5m', 'm', '2025-13-01..2025-02-01', '2025-01-01', '2025-01-01..x', 'yesterday']) {
+      expect(scopeFromParam(bad), bad).toBeNull();
+    }
   });
 });
 

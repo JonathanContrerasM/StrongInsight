@@ -129,6 +129,16 @@ describe('the Sessions tab', () => {
     expect(text()).toContain('Bodyweight assumed at 80 kg');
   });
 
+  it('totals each exercise block: sets, tonnage, reps and best e1RM', async () => {
+    await mount(<Sessions text={CSV} />);
+    const first = container.querySelector('tbody tr') as HTMLTableRowElement;
+    await act(async () => {
+      first.click();
+    });
+    // The card header reads e.g. "6 sets · 3.2t · 80 reps · e1RM 130 kg".
+    expect(text()).toMatch(/\d+ sets · [\d.,]+(t| kg) · \d+ reps · e1RM \d+ kg/);
+  });
+
   it('tags each session with what it trained, and filters on the tag', async () => {
     await mount(<Sessions text={CSV} />);
     const rows = [...container.querySelectorAll('tbody tr')];
@@ -172,6 +182,14 @@ describe('the Sessions tab', () => {
     expect(scoped).toBeGreaterThan(0);
     expect(scoped).toBeLessThan(all);
     expect(text()).toContain(String(scoped) + ' of ' + String(scoped) + ' sessions');
+
+    // A custom window narrows the list the same way; the fixture spans well over a month.
+    const last = data.report.dateRange!.to;
+    const from = new Date(last.getFullYear(), last.getMonth(), last.getDate() - 30);
+    await act(async () => data.setScope({ from, to: last }));
+    const custom = container.querySelectorAll('tbody tr').length;
+    expect(custom).toBeGreaterThan(0);
+    expect(custom).toBeLessThan(all);
 
     await act(async () => data.setScope(null));
     expect(container.querySelectorAll('tbody tr').length).toBe(all);
