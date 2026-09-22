@@ -449,7 +449,7 @@ function Results({
         >
           What can actually be compared
         </SectionLabel>
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <Tile label="Lifts compared" value={c.lifts.length} size="lg" tone="accent" />
           <Tile label="Shared, not comparable" value={c.excluded.length} hint="see below" />
           <Tile label="Only you" value={c.yoursOnly.length} />

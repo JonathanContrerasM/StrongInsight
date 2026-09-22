@@ -84,7 +84,7 @@ export function Dashboard({
         >
           Overview
         </SectionLabel>
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <Tile
             label="Total volume"
             value={formatVolume(totals.volumeKg, unit)}
@@ -135,7 +135,7 @@ export function Dashboard({
 
       <section className="space-y-4">
         <SectionLabel>Records</SectionLabel>
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <Tile
             label={'Records, last ' + RECENT_DAYS + ' days'}
             value={recentRecords.length.toLocaleString()}
@@ -176,7 +176,7 @@ export function Dashboard({
 
       <section className="space-y-4">
         <SectionLabel>Consistency</SectionLabel>
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <Tile
             label="Current streak"
             value={a.streak.current + (a.streak.current === 1 ? ' week' : ' weeks')}

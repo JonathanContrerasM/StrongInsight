@@ -213,7 +213,7 @@ export function Import() {
             </div>
           </Card>
 
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             <Tile label="Rows read" value={r.rowsRead.toLocaleString()} />
             <Tile label="Sets parsed" value={r.setsParsed.toLocaleString()} />
             <Tile label="Working sets" value={r.workingSets.toLocaleString()} />
