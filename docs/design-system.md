@@ -121,11 +121,11 @@ address:
 
 ```ts
 // src/ui/tabs.ts
-export type Route = { tab: Tab; detail: string | null };
+export type Route = { tab: Tab; detail: string | null; range?: string };
 export const DEFAULT_ROUTE: Route;                       // { tab: 'dashboard', detail: null }
 export const DETAIL_TABS: ReadonlySet<Tab>;              // 'exercises' | 'sessions'
 export function routeFromHash(hash: string): Route | null;
-export function hashForRoute(tab: Tab, detail?: string | null): string;
+export function hashForRoute(tab: Tab, detail?: string | null, range?: string | null): string;
 ```
 
 ```
@@ -133,11 +133,20 @@ export function hashForRoute(tab: Tab, detail?: string | null): string;
 #exercises                            -> { tab: 'exercises', detail: null }
 #exercises/Bench%20Press%20(Barbell)  -> { tab: 'exercises', detail: 'Bench Press (Barbell)' }
 #sessions/k3j4h5                      -> { tab: 'sessions',  detail: 'k3j4h5' }   (a workout id)
+#dashboard?range=3m                   -> { tab: 'dashboard', detail: null, range: '3m' }
+#sessions?range=2025-01-01..2025-03-31 -> { ..., range: '2025-01-01..2025-03-31' }
 ```
 
 `App` holds **one** piece of navigation state seeded from `location.hash`, listens for `hashchange`,
 and writes the hash in one place (`goTo`) so the URL can never disagree with the view. Assigning a
 hash equal to the current one does not fire `hashchange`, so that write cannot loop.
+
+The date-range scope is the one query parameter. `tabs.ts` carries it as an opaque string;
+`scopeToParam` / `scopeFromParam` in `derive/buckets.ts` translate it (`3m`, `6m`, `12m`, or
+`YYYY-MM-DD..YYYY-MM-DD`; anything else reads as "all"). A range change is written with
+`history.replaceState` rather than pushed -- the picker fires on every day clicked -- while `goTo`
+carries the current range onto the next tab, and a `hashchange` (Back, Forward, a pasted link)
+applies whatever range the hash names.
 
 **The rule that earns its keep: every view state reachable by clicking must be addressable.** Tabs
 alone were not enough, and the gap was a real bug. Tab and open lift were separate state, and only

@@ -158,6 +158,37 @@ describe('routeFromHash with a lift', () => {
   it('ignores a detail on hashForRoute for a tab that cannot carry one', () => {
     expect(hashForRoute('dashboard', 'Bench Press')).toBe('#dashboard');
   });
+});
+
+describe('routeFromHash with a range', () => {
+  it('carries the range parameter through, on a tab or on a lift', () => {
+    expect(routeFromHash('#dashboard?range=3m')).toEqual({ tab: 'dashboard', detail: null, range: '3m' });
+    expect(routeFromHash('#exercises/Bench%20Press?range=2025-01-01..2025-03-31')).toEqual({
+      tab: 'exercises',
+      detail: 'Bench Press',
+      range: '2025-01-01..2025-03-31',
+    });
+    // Without one, the route is exactly what it was before ranges existed.
+    expect(routeFromHash('#sessions')).toEqual({ tab: 'sessions', detail: null });
+  });
+
+  it('drops a query it does not understand rather than the tab', () => {
+    expect(routeFromHash('#dashboard?foo=bar')).toEqual({ tab: 'dashboard', detail: null });
+    expect(routeFromHash('#dashboard?')).toEqual({ tab: 'dashboard', detail: null });
+    expect(routeFromHash('#nowhere?range=3m')).toBeNull();
+  });
+
+  it('round-trips through hashForRoute', () => {
+    expect(hashForRoute('dashboard', null, '3m')).toBe('#dashboard?range=3m');
+    expect(hashForRoute('sessions', 'k3', '2025-01-01..2025-03-31')).toBe(
+      '#sessions/k3?range=2025-01-01..2025-03-31',
+    );
+    expect(hashForRoute('dashboard', null, null)).toBe('#dashboard');
+    for (const h of ['#dashboard?range=3m', '#exercises/Bench%20Press?range=2025-01-01..2025-03-31']) {
+      const r = routeFromHash(h)!;
+      expect(hashForRoute(r.tab, r.detail, r.range ?? null)).toBe(h);
+    }
+  });
 
   it('has a default that a hash-less URL falls back to', () => {
     // Back to a bare /app.html must show what a cold load of /app.html shows.

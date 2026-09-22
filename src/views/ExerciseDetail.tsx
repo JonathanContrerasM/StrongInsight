@@ -16,6 +16,7 @@ import { loadRepDensity, repDensity, setPositionProfile } from '../derive/profil
 import { cooccurrence } from '../derive/cooccurrence';
 import { records } from '../derive/records';
 import { RecordList } from './RecordList';
+import { describeScope } from './ScopeControl';
 import { formatDate, formatLoad, formatLoadSplit, formatVolume, formatWeight } from '../format';
 
 export function ExerciseDetail({
@@ -116,7 +117,7 @@ export function ExerciseDetail({
         <NotEnoughData
           need={
             inCorpus
-              ? 'No sets of "' + name + '" in the last ' + data.scope + ' months. Widen the range to see its history.'
+              ? 'No sets of "' + name + '" in the current range (' + (describeScope(data.scope) ?? 'all') + '). Widen it to see the history.'
               : 'No sets found for "' + name + '" in the current import.'
           }
         />

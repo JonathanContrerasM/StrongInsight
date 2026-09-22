@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { WorkoutDataProvider, useWorkoutData } from './store/useWorkoutData';
 import { Import } from './views/Import';
 import { TaggingTray } from './views/TaggingTray';
@@ -12,6 +12,9 @@ import { SessionList } from './views/SessionList';
 import { SessionDetail } from './views/SessionDetail';
 import { ThemeControl } from './ui/ThemeControl';
 import { ScopeControl } from './views/ScopeControl';
+import { formatDate } from './format';
+import { scopeFromParam, scopeToParam, type Scope } from './derive/buckets';
+import { records } from './derive/records';
 import { BrandMark, Wordmark } from './ui/BrandMark';
 import { Badge, Notice } from './ui/primitives';
 import {
@@ -59,6 +62,31 @@ function Shell() {
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
+  // Every day with a session, from the whole corpus: the range picker shows
+  // what could be picked, which the current scope must not narrow.
+  const sessionDays = useMemo(
+    () => new Set(data.workouts.map((w) => formatDate(w.date))),
+    [data.workouts],
+  );
+  // The newest record anywhere in the corpus, for the picker's "since last PR".
+  const lastRecordAt = useMemo(() => {
+    let last: Date | null = null;
+    for (const e of records(data.sets)) if (last === null || e.date > last) last = e.date;
+    return last;
+  }, [data.sets]);
+
+  /**
+   * The hash is the range's home between sessions of looking: whatever it says
+   * on mount, on Back and Forward, or in a pasted link is applied to the scope.
+   * The comparison is on the printed form, so a scope that already matches
+   * (the usual case, right after changeScope wrote it) does not re-set itself.
+   */
+  const rangeParam = route.range ?? null;
+  const { scope, setScope } = data;
+  useEffect(() => {
+    if (scopeToParam(scope) !== rangeParam) setScope(scopeFromParam(rangeParam));
+  }, [rangeParam, scope, setScope]);
+
   if (data.status === 'loading') {
     return (
       <div className="flex min-h-screen items-center justify-center gap-3 text-sm text-dim">
@@ -83,13 +111,27 @@ function Shell() {
    * actually pushed an entry.
    */
   const goTo = (tab: Tab, detail: string | null = null) => {
-    setRoute({ tab, detail });
+    const range = scopeToParam(data.scope);
+    setRoute({ tab, detail, ...(range ? { range } : {}) });
     if (typeof window === 'undefined') return;
-    const next = hashForRoute(tab, detail);
+    const next = hashForRoute(tab, detail, range);
     if (window.location.hash !== next) {
       hasPushed.current = true;
       window.location.hash = next;
     }
+  };
+
+  /**
+   * A range change rewrites the hash in place rather than pushing: the picker
+   * fires on every day clicked, and nobody wants to press Back through each.
+   * `replaceState` fires no hashchange, so the route is updated by hand.
+   */
+  const changeScope = (next: Scope) => {
+    data.setScope(next);
+    const range = scopeToParam(next);
+    setRoute((r) => ({ tab: r.tab, detail: r.detail, ...(range ? { range } : {}) }));
+    if (typeof window === 'undefined') return;
+    window.history.replaceState(null, '', hashForRoute(route.tab, route.detail, range));
   };
 
   const openExercise = (name: string) => goTo('exercises', name);
@@ -114,7 +156,6 @@ function Shell() {
    * import itself could be scoped.
    */
   const scoped = hasData && SCOPED_TABS.has(activeTab);
-  const lastSession = data.report.dateRange?.to ?? null;
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas">
@@ -164,7 +205,14 @@ function Shell() {
 
             <div className="ml-auto flex items-center gap-3">
               {scoped && (
-                <ScopeControl scope={data.scope} onChange={data.setScope} anchoredTo={lastSession} />
+                <ScopeControl
+                  scope={data.scope}
+                  onChange={changeScope}
+                  dateRange={data.report.dateRange}
+                  sessionDays={sessionDays}
+                  lastRecordAt={lastRecordAt}
+                  weekStartsOn={data.settings.weekStartsOn}
+                />
               )}
               <span className="hud-label hidden lg:inline">local only</span>
               <ThemeControl size="sm" />
