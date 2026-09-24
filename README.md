@@ -107,8 +107,10 @@ data. The app is built so that uploading it is not something it *can* do:
 
 **Never commit a real Strong export.** `fixtures/strong_workouts.csv` and
 `fixtures/strong_weight.csv` are gitignored on purpose. The suites measured from them use
-`describe.skipIf`, so a clone reports them as *skipped* rather than failing. The screenshots in
-this repository are captured from the synthetic fixture only.
+`describe.skipIf`, so a clone reports them as *skipped* rather than failing. Locks whose expected
+values are themselves personal data (real weigh-in dates and readings) live in gitignored
+`*.real.test.ts` files beside the exports, so they never reach the repository at all. The
+screenshots in this repository are captured from the synthetic fixture only.
 
 ---
 

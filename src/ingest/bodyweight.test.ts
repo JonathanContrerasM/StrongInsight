@@ -1,16 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { parseBodyweightCsv } from './parseBodyweightCsv';
-import { parseCsv } from './parseCsv';
 import { HeaderMappingError } from './headerMap';
 import { makeBodyweightCsv } from '../test/helpers';
-import {
-  REAL_FIXTURE,
-  REAL_WEIGHT_FIXTURE,
-  SAMPLE_WEIGHT_FIXTURE,
-  hasRealFixture,
-  hasRealWeightFixture,
-} from '../test/fixtures';
+import { SAMPLE_WEIGHT_FIXTURE } from '../test/fixtures';
 
 /**
  * The measurements export is the messiest input this app takes: a decade of Apple
@@ -343,61 +336,6 @@ describe('sample_weight.csv', () => {
   });
 });
 
-/**
- * The real measurements export, measured not specified.
- *
- * Both personal exports are gitignored, so this SKIPS on a fresh clone rather
- * than failing -- a skipped test is visible in the runner output, a deleted one
- * is not. It needs the workout export too, because the span is what clips it.
- */
-const real = hasRealFixture() && hasRealWeightFixture();
-
-// Read eagerly but only when present: `describe.skipIf` still evaluates the
-// describe body to collect its tests, so a read inside it would throw ENOENT on
-// a clone that has neither export.
-const parsedReal = real
-  ? parseBodyweightCsv(readFileSync(REAL_WEIGHT_FIXTURE, 'utf8'), {
-      filename: 'strong_weight.csv',
-      span: parseCsv(readFileSync(REAL_FIXTURE, 'utf8')).report.dateRange,
-    })
-  : null;
-
-describe.skipIf(!real)('strong_weight.csv', () => {
-  const { entries, report } = parsedReal ?? { entries: [], report: null! };
-
-  it('keeps only the readings that overlap the training history', () => {
-    expect(report.rowsRead).toBe(23);
-    expect(report.entriesKept).toBe(10);
-    expect(entries.map((e) => e.date)).toEqual([
-      '2023-01-12',
-      '2023-02-28',
-      '2023-03-28',
-      '2023-04-01',
-      '2023-04-04',
-      '2023-05-01',
-      '2023-06-16',
-      '2023-07-19',
-      '2023-08-24',
-      '2023-09-29',
-    ]);
-  });
-
-  it('resolves the two readings six seconds apart to the later one', () => {
-    // The duplicated day carries two readings six seconds apart.
-    expect(entries.find((e) => e.date === '2023-07-19')?.kg).toBe(84);
-  });
-
-  it('refuses the three zeros Apple Health wrote in 2019', () => {
-    expect(report.rejected).toEqual([
-      { line: 19, raw: '0', reason: 'implausible' },
-      { line: 20, raw: '0', reason: 'implausible' },
-      { line: 21, raw: '0', reason: 'implausible' },
-    ]);
-  });
-
-  it('accounts for the pre-training decade rather than losing it quietly', () => {
-    expect(report.outOfSpan).toBe(8);
-    expect(report.sameDayCollapsed).toBe(2);
-    expect(report.skippedTypes).toEqual([]);
-  });
-});
+// The locks measured from the real measurements export live in
+// `bodyweight.real.test.ts`, which is gitignored: those numbers are one person's
+// actual weigh-in dates and readings, and belong beside the exports, not in the repo.

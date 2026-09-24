@@ -9,3 +9,6 @@ dist
 fixtures/strong_workouts.csv
 # Same rule for the measurements export -- a decade of real bodyweight readings.
 fixtures/strong_weight.csv
+# Tests whose expected values are measured from those exports carry the same data
+# (real weigh-in dates and readings). They stay on the machine that has the exports.
+*.real.test.ts

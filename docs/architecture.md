@@ -178,7 +178,9 @@ absent. Beyond the unit tests, `src/ingest/sample.test.ts` locks the synthetic c
 locks measured from the real export — row counts, the W/D split, the 81 surviving isometric holds,
 Pull Up's 437/186 bodyweight-versus-loaded split, the 36 empty-bar squats — plus structural
 invariants (dense `setOrder` per exercise, unique ids, `setIds` consistency) and a re-import
-determinism check.
+determinism check. Locks measured from the measurements export are different: their expected
+values are real weigh-in dates and readings, so they sit in a gitignored `*.real.test.ts` file
+that runs only on a machine holding the exports.
 
 **Those constants live only in test files.** No application code contains a fixture-derived
 number, so any other Strong export parses on its own terms.
