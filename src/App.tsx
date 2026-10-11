@@ -7,10 +7,12 @@ import { SettingsView } from './views/Settings';
 import { Dashboard } from './views/Dashboard';
 import { Improvements } from './views/Improvements';
 import { Compare } from './views/Compare';
+import { Recovery } from './views/Recovery';
 import { ExerciseDetail } from './views/ExerciseDetail';
 import { SessionList } from './views/SessionList';
 import { SessionDetail } from './views/SessionDetail';
 import { ThemeControl } from './ui/ThemeControl';
+import { UtilityNav } from './ui/UtilityNav';
 import { ScopeControl } from './views/ScopeControl';
 import { formatDate } from './format';
 import { scopeFromParam, scopeToParam, type Scope } from './derive/buckets';
@@ -20,7 +22,7 @@ import { Badge, Notice } from './ui/primitives';
 import {
   DEFAULT_ROUTE,
   DISABLED_HINT,
-  TABS,
+  MAIN_TABS,
   hashForRoute,
   routeFromHash,
   tabEnabled,
@@ -28,7 +30,10 @@ import {
   type Tab,
 } from './ui/tabs';
 
-/** The tabs the date range applies to. Import, the tray, Compare and Settings read the whole corpus. */
+/**
+ * The tabs the date range applies to. Import, the tray, Compare and Settings read the whole corpus,
+ * and so does Recovery: it is about now, and needs the weeks before each recent session.
+ */
 const SCOPED_TABS: ReadonlySet<Tab> = new Set<Tab>(['dashboard', 'improvements', 'exercises', 'sessions']);
 
 function Shell() {
@@ -162,13 +167,16 @@ function Shell() {
       <header className="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md">
         <div className="mx-auto w-full max-w-[100rem] px-4 sm:px-6">
           <div className="flex h-14 items-center gap-3">
-            <div className="flex items-center gap-2.5">
+            <div className="flex shrink-0 items-center gap-2.5">
               <BrandMark />
               <Wordmark />
             </div>
 
-            <nav className="ml-4 hidden h-14 items-center gap-1 md:flex" aria-label="Sections">
-              {TABS.map((t) => {
+            <nav
+              className="no-scrollbar ml-4 hidden h-14 min-w-0 items-center gap-1 overflow-x-auto lg:flex"
+              aria-label="Sections"
+            >
+              {MAIN_TABS.map((t) => {
                 const active = activeTab === t.id;
                 const enabled = tabEnabled(t.id, hasData);
                 return (
@@ -180,7 +188,7 @@ function Shell() {
                     title={enabled ? undefined : DISABLED_HINT}
                     aria-current={active ? 'page' : undefined}
                     className={
-                      'relative flex h-14 items-center gap-1.5 px-3 text-sm font-medium transition-colors ' +
+                      'relative flex h-14 shrink-0 items-center gap-1.5 whitespace-nowrap px-2.5 text-sm font-medium transition-colors 2xl:px-3 ' +
                       // Not `pointer-events-none`: that would suppress the title
                       // tooltip, which is the only thing explaining the lock.
                       // `disabled` already blocks the click on its own.
@@ -203,7 +211,7 @@ function Shell() {
               })}
             </nav>
 
-            <div className="ml-auto flex items-center gap-3">
+            <div className="ml-auto flex shrink-0 items-center gap-3">
               {scoped && (
                 <ScopeControl
                   scope={data.scope}
@@ -214,17 +222,18 @@ function Shell() {
                   weekStartsOn={data.settings.weekStartsOn}
                 />
               )}
-              <span className="hud-label hidden lg:inline">local only</span>
+              <span className="hud-label hidden whitespace-nowrap 2xl:inline">local only</span>
+              <UtilityNav active={activeTab} onSelect={select} />
               <ThemeControl size="sm" />
             </div>
           </div>
 
-          {/* Below md the tab rail becomes its own scrollable row. */}
+          {/* Below lg the tab rail becomes its own scrollable row. */}
           <nav
-            className="-mx-1 flex gap-1 overflow-x-auto pb-2 md:hidden"
+            className="-mx-1 flex gap-1 overflow-x-auto pb-2 lg:hidden"
             aria-label="Sections"
           >
-            {TABS.map((t) => {
+            {MAIN_TABS.map((t) => {
               const active = activeTab === t.id;
               const enabled = tabEnabled(t.id, hasData);
               return (
@@ -236,7 +245,7 @@ function Shell() {
                   title={enabled ? undefined : DISABLED_HINT}
                   aria-current={active ? 'page' : undefined}
                   className={
-                    'flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ' +
+                    'flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ' +
                     'disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-dim ' +
                     (active ? 'bg-accent-bg text-accent-ink' : 'text-dim hover:text-ink')
                   }
@@ -296,6 +305,7 @@ function Shell() {
           />
         )}
         {activeTab === 'improvements' && <Improvements onSelectExercise={openExercise} />}
+        {activeTab === 'recovery' && <Recovery onGoToTray={() => select('tray')} />}
         {activeTab === 'compare' && <Compare />}
         {activeTab === 'exercises' &&
           (route.detail ? (

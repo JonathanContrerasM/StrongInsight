@@ -1,7 +1,7 @@
 import { useWorkoutData } from '../store/useWorkoutData';
 import { useAnalytics } from '../store/useAnalytics';
 import type { Finding, FindingFamily, FindingSet } from '../derive/insights';
-import { Badge, Card, EmptyState, Notice, SectionLabel, Tile } from '../ui/primitives';
+import { Badge, Card, CollapsibleSection, EmptyState, Notice, Tile } from '../ui/primitives';
 import { UnverifiedChip } from '../charts/parts';
 import { Sparkline, WeekdayBars } from '../viz/Insights';
 
@@ -42,18 +42,11 @@ export function Improvements({ onSelectExercise }: { onSelectExercise?: (name: s
 
   return (
     <div className="space-y-8">
-      <section>
-        <SectionLabel
-          actions={
-            <UnverifiedChip
-              unconfirmed={a.unconfirmedSets}
-              total={a.sets.length}
-              onClick={undefined}
-            />
-          }
-        >
-          What the data supports
-        </SectionLabel>
+      <CollapsibleSection
+        id="improvements.overview"
+        label="What the data supports"
+        actions={<UnverifiedChip unconfirmed={a.unconfirmedSets} total={a.sets.length} onClick={undefined} />}
+      >
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <Tile label="Clear findings" value={clear.length} size="lg" tone="accent" />
           <Tile label="Suggestive" value={suggestive.length} hint="weaker evidence" />
@@ -64,7 +57,7 @@ export function Improvements({ onSelectExercise }: { onSelectExercise?: (name: s
             hint="tested, too weak to report"
           />
         </div>
-      </section>
+      </CollapsibleSection>
 
       {insights.findings.length === 0 && (
         <Notice tone="good" title="Nothing stands out.">
@@ -80,8 +73,12 @@ export function Improvements({ onSelectExercise }: { onSelectExercise?: (name: s
         const inFamily = insights.findings.filter((f) => f.family === family);
         if (inFamily.length === 0) return null;
         return (
-          <section key={family} className="space-y-3">
-            <SectionLabel>{FAMILY_LABEL[family]}</SectionLabel>
+          <CollapsibleSection
+            key={family}
+            id={'improvements.' + family}
+            label={FAMILY_LABEL[family]}
+            className="space-y-3"
+          >
             <p className="-mt-1 text-xs text-dim">{FAMILY_BLURB[family]}</p>
             <div className="space-y-3">
               {inFamily.map((f) => (
@@ -93,13 +90,12 @@ export function Improvements({ onSelectExercise }: { onSelectExercise?: (name: s
                 />
               ))}
             </div>
-          </section>
+          </CollapsibleSection>
         );
       })}
 
       {insights.positives.length > 0 && (
-        <section className="space-y-3">
-          <SectionLabel>Going well</SectionLabel>
+        <CollapsibleSection id="improvements.going-well" label="Going well" className="space-y-3">
           <p className="-mt-1 text-xs text-dim">
             The same tests, in the direction nobody needs to fix. Held to the same evidence bar as
             everything above, so this is not the soft-focus version of the page.
@@ -115,7 +111,7 @@ export function Improvements({ onSelectExercise }: { onSelectExercise?: (name: s
               />
             ))}
           </div>
-        </section>
+        </CollapsibleSection>
       )}
 
       <Methodology insights={insights} />
@@ -226,8 +222,7 @@ function Evidence({ finding: f }: { finding: Finding }) {
 function Methodology({ insights }: { insights: FindingSet }) {
   const skipped = [...new Set(insights.skippedRules)];
   return (
-    <section className="space-y-3">
-      <SectionLabel>How this was decided</SectionLabel>
+    <CollapsibleSection id="improvements.method" label="How this was decided" className="space-y-3">
       <Card>
         <p className="max-w-2xl text-xs leading-relaxed text-dim">
           Searching enough patterns guarantees finding one. Of{' '}
@@ -253,6 +248,6 @@ function Methodology({ insights }: { insights: FindingSet }) {
           </p>
         )}
       </Card>
-    </section>
+    </CollapsibleSection>
   );
 }

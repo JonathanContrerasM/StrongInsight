@@ -15,6 +15,7 @@ export type Tab =
   | 'improvements'
   | 'exercises'
   | 'sessions'
+  | 'recovery'
   | 'compare'
   | 'tray'
   | 'import'
@@ -25,19 +26,30 @@ export type TabSpec = {
   label: string;
   /** True when the tab has nothing to show until a CSV has been imported. */
   needsData: boolean;
+  /**
+   * Housekeeping rather than analysis: drawn as an icon beside the theme switch,
+   * not as a text tab. Nine text tabs and the range control do not fit one row.
+   */
+  utility: boolean;
 };
 
 /** Array order is nav order. */
 export const TABS: readonly TabSpec[] = [
-  { id: 'dashboard', label: 'Dashboard', needsData: true },
-  { id: 'improvements', label: 'Improvements', needsData: true },
-  { id: 'exercises', label: 'Exercises', needsData: true },
-  { id: 'sessions', label: 'Sessions', needsData: true },
-  { id: 'compare', label: 'Compare', needsData: true },
-  { id: 'tray', label: 'Tagging tray', needsData: true },
-  { id: 'import', label: 'Import', needsData: false },
-  { id: 'settings', label: 'Settings', needsData: false },
+  { id: 'dashboard', label: 'Dashboard', needsData: true, utility: false },
+  { id: 'improvements', label: 'Improvements', needsData: true, utility: false },
+  { id: 'exercises', label: 'Exercises', needsData: true, utility: false },
+  { id: 'sessions', label: 'Sessions', needsData: true, utility: false },
+  { id: 'recovery', label: 'Recovery', needsData: true, utility: false },
+  { id: 'compare', label: 'Compare', needsData: true, utility: false },
+  { id: 'tray', label: 'Tagging tray', needsData: true, utility: false },
+  { id: 'import', label: 'Import', needsData: false, utility: true },
+  { id: 'settings', label: 'Settings', needsData: false, utility: true },
 ];
+
+/** The text tabs, in nav order. */
+export const MAIN_TABS: readonly TabSpec[] = TABS.filter((t) => !t.utility);
+/** The icon tabs, in nav order. */
+export const UTILITY_TABS: readonly TabSpec[] = TABS.filter((t) => t.utility);
 
 export function tabEnabled(tab: Tab, hasData: boolean): boolean {
   if (hasData) return true;

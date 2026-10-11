@@ -98,6 +98,23 @@ export const NEUTRAL_INK = AXIS;
 export const EMPTY_FILL = 'var(--chart-empty)';
 export const EMPTY_STROKE = 'var(--chart-empty-stroke)';
 
+/** The body map's silhouette, and the hairline that separates its muscles. */
+export const BODY = 'var(--chart-body)';
+export const BODY_STROKE = 'var(--chart-body-stroke)';
+
+/**
+ * Recovery body map, indexed by fatigue level 0..4: ready (the bare body), two
+ * recovering ambers, two fatigued reds. The one ramp allowed to say red -- its
+ * message is "rest this", which is exactly an alert.
+ */
+export const FATIGUE = [
+  BODY,
+  'var(--chart-fatigue-1)',
+  'var(--chart-fatigue-2)',
+  'var(--chart-fatigue-3)',
+  'var(--chart-fatigue-4)',
+] as const;
+
 function clamp01(t: number): number {
   return t < 0 ? 0 : t > 1 ? 1 : t;
 }

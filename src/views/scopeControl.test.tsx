@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { ScopeControl, describeScope, rangePresets, seedRange } from './ScopeControl';
+import { ScopeControl, compactRange, describeScope, rangePresets, seedRange } from './ScopeControl';
 import type { Scope } from '../derive/buckets';
 
 /**
@@ -79,7 +79,7 @@ describe('ScopeControl', () => {
     const calls: Scope[] = [];
     await mount({ from: new Date(2025, 0, 1), to: new Date(2025, 2, 31) }, calls);
     expect(container.querySelector('input')).toBeNull();
-    const segment = button('2025-01-01 → 2025-03-31');
+    const segment = button('1 Jan – 31 Mar 2025');
     expect(segment.getAttribute('aria-pressed')).toBe('true');
     expect(dialog()).toBeNull();
 
@@ -95,7 +95,7 @@ describe('ScopeControl', () => {
   it('only lets session days be picked, and orders a pair however it was clicked', async () => {
     const calls: Scope[] = [];
     await mount({ from: new Date(2025, 0, 1), to: new Date(2025, 2, 31) }, calls);
-    await act(async () => button('2025-01-01 → 2025-03-31').click());
+    await act(async () => button('1 Jan – 31 Mar 2025').click());
     expect(day('2025-01-07').disabled).toBe(true);
     expect(day('2025-01-08').disabled).toBe(false);
 
@@ -108,7 +108,7 @@ describe('ScopeControl', () => {
     await act(async () => back.click());
     await act(async () => day('2025-01-08').click());
     expect(calls.pop()).toEqual({ from: new Date(2025, 0, 8), to: new Date(2025, 2, 31) });
-    expect(button('2025-01-08 → 2025-03-31')).toBeDefined();
+    expect(button('8 Jan – 31 Mar 2025')).toBeDefined();
 
     await act(async () => button('Done').click());
     expect(dialog()).toBeNull();
@@ -117,7 +117,7 @@ describe('ScopeControl', () => {
   it('clears back to all history from inside the picker', async () => {
     const calls: Scope[] = [];
     await mount({ from: new Date(2025, 0, 1), to: new Date(2025, 2, 31) }, calls);
-    await act(async () => button('2025-01-01 → 2025-03-31').click());
+    await act(async () => button('1 Jan – 31 Mar 2025').click());
     expect(dialog()).not.toBeNull();
     await act(async () => button('Clear').click());
     expect(calls).toEqual([null]);
@@ -128,7 +128,7 @@ describe('ScopeControl', () => {
 
   it('offers a chip per year of the corpus, and one since the last PR', async () => {
     await mount({ from: new Date(2025, 0, 1), to: new Date(2025, 2, 31) }, []);
-    await act(async () => button('2025-01-01 → 2025-03-31').click());
+    await act(async () => button('1 Jan – 31 Mar 2025').click());
     for (const label of ['2024', '2025', 'Since last PR']) expect(button(label)).toBeDefined();
     expect(rangePresets(CORPUS, new Date(2025, 2, 31))).toEqual([
       { label: '2024', range: { from: CORPUS.from, to: new Date(2024, 11, 31) } },
@@ -143,6 +143,11 @@ describe('ScopeControl', () => {
     expect(describeScope(null)).toBeNull();
     expect(describeScope(6)).toBe('last 6 months');
     expect(describeScope({ from: new Date(2025, 0, 1), to: new Date(2025, 2, 31) })).toBe('2025-01-01 → 2025-03-31');
+  });
+
+  it('labels a custom segment compactly, with the year once when it is shared', () => {
+    expect(compactRange({ from: new Date(2025, 0, 1), to: new Date(2025, 2, 31) })).toBe('1 Jan – 31 Mar 2025');
+    expect(compactRange({ from: new Date(2024, 10, 3), to: new Date(2025, 1, 9) })).toBe('3 Nov 2024 – 9 Feb 2025');
     // A preset older than the corpus seeds from the first session, not before it.
     expect(seedRange(12, { from: new Date(2025, 0, 1), to: new Date(2025, 5, 1) })).toEqual({
       from: new Date(2025, 0, 1),

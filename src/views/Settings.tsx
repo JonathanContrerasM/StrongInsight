@@ -102,6 +102,26 @@ export function SettingsView() {
       </Section>
 
       <Section
+        label="Recovery"
+        title="Body figure"
+        blurb="The outline the Recovery map is drawn on. It changes nothing in the fatigue estimate."
+      >
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Field label="Figure">
+            <Select
+              value={s.bodyFigure}
+              onChange={(e) =>
+                data.updateSettings({ bodyFigure: e.target.value === 'female' ? 'female' : 'male' })
+              }
+            >
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+            </Select>
+          </Field>
+        </div>
+      </Section>
+
+      <Section
         label="Metadata"
         title="Export and import tags"
         blurb="Your confirmed exercise metadata, as a JSON file you can keep or move to another browser."

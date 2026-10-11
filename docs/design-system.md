@@ -59,6 +59,14 @@ Two rules the palette must satisfy, both locked by `charts/palette.test.ts`:
 - **The diverging midpoint is the quietest colour in its ramp.** Reusing the light ramp's
   near-white neutral on a near-black card would make "no imbalance" the loudest thing on screen.
 
+**The one chart that may say red** is the Recovery body map. `FATIGUE` in `colour.ts` runs from the
+bare body (`--chart-body`) through two ambers to two reds (`--chart-fatigue-1..4`). The volume
+ramps avoid red so that "a lot of training" never looks like an alarm. A fatigue map is different:
+its message is "rest this", so red is the right colour. The palette test checks three things here:
+the silhouette stands off the card, every fatigue step stands off the bare body, and the two
+fatigued steps reach 3:1 against the surface. It cannot check ordering by contrast, because in dark
+mode amber is brighter than red.
+
 That test parses `index.css` directly rather than asserting against a JavaScript copy, so it
 cannot drift from what actually ships. It also checks WCAG contrast for every text token and
 verifies that the hard-coded colours in the boot script still match `--c-canvas` — the one
@@ -130,6 +138,7 @@ export function hashForRoute(tab: Tab, detail?: string | null, range?: string | 
 
 ```
 #compare                              -> { tab: 'compare',   detail: null }
+#recovery                             -> { tab: 'recovery',  detail: null }
 #exercises                            -> { tab: 'exercises', detail: null }
 #exercises/Bench%20Press%20(Barbell)  -> { tab: 'exercises', detail: 'Bench Press (Barbell)' }
 #sessions/k3j4h5                      -> { tab: 'sessions',  detail: 'k3j4h5' }   (a workout id)

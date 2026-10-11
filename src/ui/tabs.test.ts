@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_ROUTE, DETAIL_TABS, TABS, hashForRoute, routeFromHash, tabEnabled, type Tab } from './tabs';
+import {
+  DEFAULT_ROUTE,
+  DETAIL_TABS,
+  MAIN_TABS,
+  TABS,
+  UTILITY_TABS,
+  hashForRoute,
+  routeFromHash,
+  tabEnabled,
+  type Tab,
+} from './tabs';
 
 /**
  * The empty app used to navigate three different ways at once: Dashboard,
@@ -15,6 +25,7 @@ const DISABLED_WITHOUT_DATA: Tab[] = [
   'improvements',
   'exercises',
   'sessions',
+  'recovery',
   'compare',
   'tray',
 ];
@@ -44,6 +55,21 @@ describe('tabEnabled', () => {
 
   it('agrees with the needsData flag it is derived from', () => {
     for (const t of TABS) expect(tabEnabled(t.id, false)).toBe(!t.needsData);
+  });
+});
+
+describe('utility tabs', () => {
+  it('draws exactly Import and Settings as icons', () => {
+    expect(UTILITY_TABS.map((t) => t.id)).toEqual(['import', 'settings']);
+  });
+
+  /** The icons are the way in on an empty app, so they can never be locked. */
+  it('never locks an icon tab', () => {
+    for (const t of UTILITY_TABS) expect(tabEnabled(t.id, false), t.id).toBe(true);
+  });
+
+  it('splits the table without losing or repeating a tab', () => {
+    expect([...MAIN_TABS, ...UTILITY_TABS].map((t) => t.id).sort()).toEqual(TABS.map((t) => t.id).sort());
   });
 });
 

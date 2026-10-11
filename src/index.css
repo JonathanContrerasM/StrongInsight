@@ -101,6 +101,18 @@
   --chart-flag: #b26a00;
   --chart-ink: #0b0d10;
   --chart-ink-dim: #5a6270;
+
+  /* --- recovery body map --------------------------------------------------- */
+  /* Fatigue is the one place a chart is ALLOWED to say red: the map's whole
+     message is "rest this". Amber for recovering, red for fatigued, borrowing
+     the warn/danger hues rather than the volume ramps, so a busy muscle in a
+     heatmap and a fatigued one here never look alike. */
+  --chart-body: #dde1e7;
+  --chart-body-stroke: #ffffff;
+  --chart-fatigue-1: #eebd4f;
+  --chart-fatigue-2: #e39a14;
+  --chart-fatigue-3: #e0612e;
+  --chart-fatigue-4: #c0342e;
 }
 
 /* `:root.dark` rather than `.dark`: both would be specificity (0,1,0) against the
@@ -183,6 +195,13 @@
   --chart-flag: #ffb020;
   --chart-ink: #e9edf2;
   --chart-ink-dim: #98a1ad;
+
+  --chart-body: #2a3039;
+  --chart-body-stroke: #111419;
+  --chart-fatigue-1: #6b571b;
+  --chart-fatigue-2: #e9a21d;
+  --chart-fatigue-3: #f2733a;
+  --chart-fatigue-4: #ff5a5f;
 }
 
 @theme inline {
@@ -278,6 +297,14 @@
 }
 
 @layer components {
+  /* A row that may scroll sideways when tight, without drawing a scrollbar under the header. */
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
   /* The micro-label: every uppercase caption in the app uses this. */
   .hud-label {
     font-size: 0.6875rem;

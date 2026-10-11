@@ -39,6 +39,7 @@ export const settingsSchema = z.object({
   displayUnit: weightUnit.default('kg'),
   weekStartsOn: z.union([z.literal(0), z.literal(1)]).default(1),
   defaultBodyweightKg: z.number().positive().finite().default(80),
+  bodyFigure: z.enum(['male', 'female']).default('male'),
 });
 
 export const rawImportSchema = z.object({

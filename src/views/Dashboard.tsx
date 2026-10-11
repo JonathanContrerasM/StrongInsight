@@ -10,7 +10,7 @@ import { RecordsChart } from '../viz/Records';
 import { FrequencyTable } from '../viz/Frequency';
 import { RecordList } from './RecordList';
 import { ChartCard, Toggle, UnverifiedChip } from '../charts/parts';
-import { Button, EmptyState, Notice, SectionLabel, Tile } from '../ui/primitives';
+import { Button, EmptyState, Notice, CollapsibleSection, Tile } from '../ui/primitives';
 import { isBodyweightRelative } from '../model/effectiveLoad';
 import { volume, setCounts, daysBetween } from '../derive';
 import { formatDate, formatVolume } from '../format';
@@ -73,18 +73,13 @@ export function Dashboard({
        * context rather than achievement demoted to the meta line below -- the old
        * six-across grid gave "Range" the same weight as "Total volume".
        */}
-      <section>
-        <SectionLabel
-          actions={
-            <UnverifiedChip
-              unconfirmed={a.unconfirmedSets}
-              total={a.sets.length}
-              onClick={onGoToTray}
-            />
-          }
-        >
-          Overview
-        </SectionLabel>
+      <CollapsibleSection
+        id="dashboard.overview"
+        label="Overview"
+        actions={
+          <UnverifiedChip unconfirmed={a.unconfirmedSets} total={a.sets.length} onClick={onGoToTray} />
+        }
+      >
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <Tile
             label="Total volume"
@@ -132,10 +127,9 @@ export function Dashboard({
             )}
           </span>
         </div>
-      </section>
+      </CollapsibleSection>
 
-      <section className="space-y-4">
-        <SectionLabel>Records</SectionLabel>
+      <CollapsibleSection id="dashboard.records" label="Records" className="space-y-4">
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <Tile
             label={'Records, last ' + RECENT_DAYS + ' days'}
@@ -173,10 +167,9 @@ export function Dashboard({
             )}
           </ChartCard>
         </div>
-      </section>
+      </CollapsibleSection>
 
-      <section className="space-y-4">
-        <SectionLabel>Consistency</SectionLabel>
+      <CollapsibleSection id="dashboard.consistency" label="Consistency" className="space-y-4">
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <Tile
             label="Current streak"
@@ -230,15 +223,13 @@ export function Dashboard({
             />
           }
         />
-      </section>
+      </CollapsibleSection>
 
-      <section>
-        <SectionLabel>Structure</SectionLabel>
+      <CollapsibleSection id="dashboard.structure" label="Structure">
         <SplitPanel result={a.split} onSelectExercise={onSelectExercise} />
-      </section>
+      </CollapsibleSection>
 
-      <section className="space-y-4">
-        <SectionLabel>Volume</SectionLabel>
+      <CollapsibleSection id="dashboard.volume" label="Volume" className="space-y-4">
 
         <ChartCard
           title="Volume over time"
@@ -317,10 +308,9 @@ export function Dashboard({
         >
           <MuscleHeatmap matrix={a.detailedMuscleMatrix} unit={unit} scaleMode={muscleScale} />
         </ChartCard>
-      </section>
+      </CollapsibleSection>
 
-      <section>
-        <SectionLabel>Balance</SectionLabel>
+      <CollapsibleSection id="dashboard.balance" label="Balance">
         <div className="grid gap-4 lg:grid-cols-2">
           <ChartCard
             title="Push / pull balance"
@@ -345,10 +335,9 @@ export function Dashboard({
             />
           </ChartCard>
         </div>
-      </section>
+      </CollapsibleSection>
 
-      <section>
-        <SectionLabel>Habits</SectionLabel>
+      <CollapsibleSection id="dashboard.habits" label="Habits">
         <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
           <ChartCard
             title="How often each group is trained"
@@ -371,7 +360,7 @@ export function Dashboard({
             <HabitHeatmap habit={a.habit} weekStartsOn={data.settings.weekStartsOn} />
           </ChartCard>
         </div>
-      </section>
+      </CollapsibleSection>
     </div>
   );
 }

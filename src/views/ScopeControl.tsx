@@ -55,7 +55,7 @@ export function ScopeControl({
 
   const options = [
     ...SCOPE_OPTIONS.map((o) => ({ value: o.value === null ? 'all' : String(o.value), label: o.label })),
-    { value: 'custom', label: range ? describeScope(range)! : 'Custom' },
+    { value: 'custom', label: range ? compactRange(range) : 'Custom' },
   ];
 
   function select(v: string) {
@@ -70,7 +70,7 @@ export function ScopeControl({
   }
 
   return (
-    <div title={title} className="flex items-center gap-2">
+    <div title={title} className="flex shrink-0 items-center gap-2">
       <span className="hud-label hidden sm:inline">Range</span>
       <Popover
         open={open && range !== null && dateRange !== null}
@@ -135,6 +135,20 @@ export function rangePresets(
     out.push({ label: 'Since last PR', range: { from: lastRecordAt, to: dateRange.to } });
   }
   return out;
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * A custom range as the segment wears it: "1 Jan – 31 Mar 2025", the year once
+ * when both ends share it. Narrower than the ISO form, which pushed the header
+ * past one row; the tooltip keeps the full dates. Fixed English months rather
+ * than the browser locale, because the rest of the UI is English.
+ */
+export function compactRange({ from, to }: ScopeRange): string {
+  const day = (d: Date) => d.getDate() + ' ' + MONTHS[d.getMonth()];
+  if (from.getFullYear() === to.getFullYear()) return day(from) + ' – ' + day(to) + ' ' + to.getFullYear();
+  return day(from) + ' ' + from.getFullYear() + ' – ' + day(to) + ' ' + to.getFullYear();
 }
 
 /** How the scope reads in a sentence: null for all, "last 3 months", or "2025-01-01 → 2025-03-31". */
