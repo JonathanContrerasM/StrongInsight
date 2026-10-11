@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
+import { useCollapsed } from './collapse';
 
 /**
  * Generic, domain-free UI primitives.
@@ -62,14 +63,87 @@ export function Card({
   );
 }
 
-/** Section heading for a view. The rule doubles as the HUD horizon line. */
-export function SectionLabel({ children, actions }: { children: ReactNode; actions?: ReactNode }) {
+/**
+ * Section heading for a view. The rule doubles as the HUD horizon line.
+ *
+ * With `onToggle` the label becomes the button that folds the section; see
+ * CollapsibleSection. Without it, it is a plain heading as before.
+ */
+export function SectionLabel({
+  children,
+  actions,
+  expanded,
+  onToggle,
+  controls,
+}: {
+  children: ReactNode;
+  actions?: ReactNode;
+  expanded?: boolean;
+  onToggle?: () => void;
+  /** Id of the region the toggle shows and hides. */
+  controls?: string;
+}) {
   return (
     <div className="mb-2 flex items-center gap-3">
-      <span className="hud-label whitespace-nowrap">{children}</span>
+      {onToggle ? (
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={expanded}
+          aria-controls={controls}
+          className="hud-label -ml-1 inline-flex items-center gap-1.5 whitespace-nowrap rounded px-1 transition-colors hover:text-ink"
+        >
+          <svg
+            width="10"
+            height="10"
+            viewBox="0 0 10 10"
+            aria-hidden
+            className={'transition-transform ' + (expanded ? 'rotate-90' : '')}
+          >
+            <path d="M3.5 2l3 3-3 3" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          {children}
+        </button>
+      ) : (
+        <span className="hud-label whitespace-nowrap">{children}</span>
+      )}
       <span aria-hidden className="h-px flex-1 bg-line" />
       {actions}
     </div>
+  );
+}
+
+/**
+ * A view section whose heading folds it away. Open by default; the choice is
+ * remembered per device (ui/collapse.ts). Folded content is not mounted at all,
+ * so a collapsed chart costs nothing to draw.
+ */
+export function CollapsibleSection({
+  id,
+  label,
+  actions,
+  className = '',
+  children,
+}: {
+  /** Stable storage key, e.g. "dashboard.records". */
+  id: string;
+  label: ReactNode;
+  actions?: ReactNode;
+  /** Applied while expanded; spacing utilities would leave a gap under a lone header. */
+  className?: string;
+  children: ReactNode;
+}) {
+  const [collapsed, toggle] = useCollapsed(id);
+  const regionId = useId();
+  // Children sit directly in the section, not in a wrapper, so the caller's
+  // `space-y-*` spaces them exactly as it did before sections could fold.
+  return (
+    <section id={regionId} className={collapsed ? '' : className}>
+      <SectionLabel actions={actions} expanded={!collapsed} onToggle={toggle} controls={regionId}>
+        {label}
+      </SectionLabel>
+      {!collapsed && children}
+    </section>
   );
 }
 
@@ -256,7 +330,7 @@ export function SegmentedControl<T extends string>({
             aria-pressed={active}
             onClick={() => onChange(o.value)}
             className={
-              'rounded px-2.5 py-1 text-xs font-medium transition-colors ' +
+              'whitespace-nowrap rounded px-2.5 py-1 text-xs font-medium transition-colors ' +
               (active ? 'bg-accent-bg text-accent-ink' : 'text-dim hover:bg-surface hover:text-ink')
             }
           >

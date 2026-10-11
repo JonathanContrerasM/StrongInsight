@@ -140,13 +140,18 @@ export type Settings = {
   displayUnit: WeightUnit;
   weekStartsOn: 0 | 1;
   defaultBodyweightKg: number;
+  /** Which outline the Recovery body map draws. Presentation only. */
+  bodyFigure: BodyFigure;
 };
+
+export type BodyFigure = 'male' | 'female';
 
 export const DEFAULT_SETTINGS: Settings = {
   inputUnit: 'kg',
   displayUnit: 'kg',
   weekStartsOn: 1,
   defaultBodyweightKg: 80,
+  bodyFigure: 'male',
 };
 
 export type RawImport = {

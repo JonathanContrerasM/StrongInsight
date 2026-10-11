@@ -51,6 +51,16 @@ describe('settings', () => {
     expect(s.inputUnit).toBe('lb');
     expect(s.displayUnit).toBe('kg');
     expect(s.defaultBodyweightKg).toBe(80);
+    // Records saved before the Recovery tab have no figure.
+    expect(s.bodyFigure).toBe('male');
+  });
+
+  it('keeps a chosen body figure and rejects an unknown one', () => {
+    const w = warns();
+    expect(readSettings({ ...DEFAULT_SETTINGS, bodyFigure: 'female' }, w).bodyFigure).toBe('female');
+    expect(w).toEqual([]);
+    expect(readSettings({ ...DEFAULT_SETTINGS, bodyFigure: 'robot' }, w)).toEqual(DEFAULT_SETTINGS);
+    expect(w.length).toBeGreaterThan(0);
   });
 
   it('ignores unknown future fields rather than rejecting the record', () => {

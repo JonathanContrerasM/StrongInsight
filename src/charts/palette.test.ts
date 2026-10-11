@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { CATEGORICAL, DIVERGING, SEQUENTIAL, sequential, diverging, categorical } from './colour';
+import { BODY, CATEGORICAL, DIVERGING, FATIGUE, SEQUENTIAL, sequential, diverging, categorical } from './colour';
 
 /**
  * Contrast and ordering locks for the two-theme palette.
@@ -88,7 +88,7 @@ describe('palette parity', () => {
   });
 
   it('defines every variable colour.ts references', () => {
-    const refs = [...SEQUENTIAL, ...DIVERGING, ...CATEGORICAL];
+    const refs = [...SEQUENTIAL, ...DIVERGING, ...CATEGORICAL, ...FATIGUE];
     for (const theme of THEMES) {
       for (const ref of refs) expect(() => resolve(theme.vars, ref)).not.toThrow();
     }
@@ -200,6 +200,24 @@ describe.each(THEMES)('$name theme', ({ vars }) => {
     const hexes = CATEGORICAL.map((ref) => resolve(vars, ref));
     expect(new Set(hexes).size, 'categorical slots must not repeat').toBe(hexes.length);
     for (const hex of hexes) expect(contrast(hex, surface)).toBeGreaterThanOrEqual(3);
+  });
+
+  /**
+   * The body map. The bare silhouette must read as a figure on the card, every
+   * fatigue step must stand off the bare body -- "a bit tired" and "untouched"
+   * are different facts -- and "fatigued" has to be unmissable.
+   */
+  it('keeps the body map legible', () => {
+    const body = resolve(vars, BODY);
+    expect(contrast(body, surface), 'body vs surface').toBeGreaterThanOrEqual(1.25);
+    const steps = FATIGUE.slice(1).map((ref) => resolve(vars, ref));
+    expect(new Set([body, ...steps]).size, 'fatigue steps must not repeat').toBe(FATIGUE.length);
+    steps.forEach((hex, i) => {
+      expect(contrast(hex, body), 'fatigue step ' + (i + 1) + ' vs body').toBeGreaterThanOrEqual(1.3);
+    });
+    for (const hex of steps.slice(2)) {
+      expect(contrast(hex, surface), 'fatigued vs surface').toBeGreaterThanOrEqual(3);
+    }
   });
 });
 

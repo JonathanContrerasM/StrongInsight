@@ -68,10 +68,11 @@ rather than folded into an average.
 | **Improvements** | Ranked findings across consistency, progression, and neglect and balance — each with its z-score, each gated. A plateau is tested as a claim, not assumed from a slope near zero; what is going well is listed too, through the same gate. Three counters in the open: patterns tested, suppressed as too weak, and tested-and-fine. |
 | **Exercises** | Every lift in a sortable table, and behind any row the full history: estimated 1RM, per-session heaviest load and volume as two facets, every record it ever set, strength as a multiple of bodyweight once one is recorded, a load/rep density map, and the set-position profile. |
 | **Sessions** | Every workout, newest first, tagged with what it actually trained — one tag or several, judged from its own working sets rather than from the recovered split; behind any row (or any calendar day) the session as logged: every exercise in order, every set with its effective load, reps, e1RM, and RPE, rest and notes where they were recorded. |
+| **Recovery** | What to train today (push / pull / legs / core, judged by their main movers); a front and back body map coloured by how fatigued each muscle is (hard sets, effort and time since each session, decaying faster for small muscles), with a ready-in estimate per muscle and a +24/48/72 h forecast; hard sets per muscle this week against a 10–20 guide band; and six weeks of fatigue history that marks every session started while a muscle was still fatigued. An export more than a week old is shown as it stood right after its last session, and the view says so. → [The Recovery tab](docs/analysis.md#the-recovery-tab-fatigue-is-a-model-said-out-loud) |
 | **Compare** | A second person's export and bodyweight history, compared as rates rather than totals, with an explicit list of what was excluded and why. Stored on your device, removable in one click. |
 | **Tagging tray** | The queue of exercises whose metadata is still a guess, highest set count first. Anything unconfirmed renders with a visible `unverified` marker wherever it appears. |
-| **Import** | Your export and your bodyweight history together, since neither reads without the other; then an ingest report rather than a spinner: row counts, the W/D split, every unrecognised token with its verbatim value and file line, and the traps found in your own data. |
-| **Settings** | Units, week start, theme, metadata export/import, archive rollback, reset. |
+| **Import** (tray icon, top right) | Your export and your bodyweight history together, since neither reads without the other; then an ingest report rather than a spinner: row counts, the W/D split, every unrecognised token with its verbatim value and file line, and the traps found in your own data. |
+| **Settings** (gear icon, top right) | Units, week start, theme, the body figure for Recovery, metadata export/import, archive rollback, reset. |
 | **Range** | A 3 / 6 / 12 month / all switch in the header, counted back from your last session rather than from today, plus a custom window picked on a calendar that only offers days you trained (with one-click chips per year and "since last PR"). Every chart and every finding on the analytical tabs follows it together, and it rides in the URL (`#dashboard?range=3m`) so a reload or a shared link keeps it. |
 
 <table>
@@ -117,8 +118,8 @@ screenshots in this repository are captured from the synthetic fixture only.
 ## Under the hood
 
 React 19, TypeScript (strict), Vite 6, Tailwind v4. **Five runtime dependencies**
-(`react`, `react-dom`, `papaparse`, `idb-keyval`, `zod`) and no charting library — all 14 charts are
-hand-rolled SVG, because four of the five heatmaps are `<rect>` grids that chart libraries handle
+(`react`, `react-dom`, `papaparse`, `idb-keyval`, `zod`) and no charting library — all 22 charts are
+hand-rolled (SVG, plus HTML bars for weekly sets), because four of the five heatmaps are `<rect>` grids that chart libraries handle
 badly and the only part genuinely worth having is a handful of scales.
 
 ```
@@ -142,7 +143,7 @@ import from `src/meta/**` or `src/store/**`, or every keystroke in the tagging t
 6,517 rows. And **`derive/` is pure**: every function is a plain `(sets, metaIndex) => T` with no
 React and no IO, which is what makes all of it trivially testable.
 
-**480 tests across 28 files.** The suites measured from the personal export skip automatically when
+**517 tests across 34 files** on a fresh clone. The suites measured from the personal export skip automatically when
 it is absent, so a fresh clone is green. CI runs `typecheck`, `test` and `build` on every push and
 pull request, on a clean checkout — a green badge means a fresh clone is green too.
 
@@ -184,6 +185,11 @@ Two things worth knowing before changing anything, beyond the export rule above:
 - **Colour comes only from the semantic tokens.**
   `grep -rn --text -E "(text|bg|border)-(slate|amber|blue)-[0-9]" src` is expected to return
   nothing, and `src/charts/palette.test.ts` parses `index.css` directly to keep it that way.
+- **The landing page's screenshots are generated too.** `node scripts/make-screenshots.mjs` builds
+  the app, drives a local Brave, Chrome or Chromium headless (no Playwright, no new dependency),
+  imports the synthetic sample, and writes every `public/shots/*-{light,dark}.png`. The clock is
+  pinned to the morning after the sample's last session, so Recovery shows a real "train today"
+  rather than a years-old export's stale notice. Re-run it after a visual change.
 
 ## License
 

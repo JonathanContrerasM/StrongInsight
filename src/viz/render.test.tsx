@@ -35,6 +35,11 @@ import { CsvDropzone } from '../ui/CsvDropzone';
 import { findings } from '../derive/insights';
 import type { ExerciseMeta } from '../model/types';
 import { SAMPLE_FIXTURE } from '../test/fixtures';
+import { fatigueHistory, fatigueStimuli, muscleFatigue, weeklyVolume } from '../derive/recovery';
+import { WeeklySetsChart } from './WeeklySetsChart';
+import { FatigueHistoryChart } from './FatigueHistory';
+import { BodyMap, type BodyRegion } from './BodyMap';
+import { regionFatigue } from './bodyRegions';
 
 /**
  * Mount smoke tests.
@@ -600,5 +605,55 @@ describe('tooltips follow the cursor', () => {
     expect(tip!.style.top).toBe('');
     expect(tip!.style.right).not.toBe('');
     expect(tip!.style.bottom).not.toBe('');
+  });
+});
+
+describe('body map', () => {
+  const last = new Date(Math.max(...sets.map((s) => s.date.getTime())));
+  const regionsAt = (asOf: Date) => {
+    const out = new Map<string, BodyRegion>();
+    for (const [id, ms] of regionFatigue(muscleFatigue(sets, lookup, asOf).muscles)) {
+      out.set(id, { level: ms[0]!.level, label: id, tip: 'tip:' + id });
+    }
+    return out;
+  };
+
+  it.each(['male', 'female'] as const)('mounts the %s figure and colours trained regions', (figure) => {
+    const el = render(<BodyMap figure={figure} regions={regionsAt(last)} />);
+    expect(el.querySelectorAll('svg')).toHaveLength(2);
+    // Right after the sample's last session something must be off the bare body.
+    expect(el.querySelector('g[fill^="var(--chart-fatigue"]')).toBeTruthy();
+  });
+
+  it('draws a bare silhouette with nothing to colour', () => {
+    const el = render(<BodyMap figure="male" regions={new Map()} />);
+    expect(el.querySelector('g[fill^="var(--chart-fatigue"]')).toBeNull();
+    expect(el.querySelector('[role="button"]')).toBeNull();
+  });
+
+  it('shows the region tooltip at the cursor', () => {
+    const el = render(<BodyMap figure="male" regions={regionsAt(last)} />);
+    const region = el.querySelector('g[role="button"]')!;
+    act(() => {
+      region.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 120, clientY: 90 }));
+    });
+    expect(document.body.textContent).toContain('tip:');
+  });
+});
+
+describe('recovery charts', () => {
+  const last = new Date(Math.max(...sets.map((s) => s.date.getTime())));
+
+  it('mount on the sample', () => {
+    const el = render(<WeeklySetsChart rows={weeklyVolume(muscleFatigue(sets, lookup, last).muscles, last)} />);
+    expect(el.textContent).toContain('Quads');
+    const h = render(<FatigueHistoryChart history={fatigueHistory(fatigueStimuli(sets, lookup), last)} />);
+    expect(h.querySelectorAll('rect').length).toBeGreaterThan(42);
+  });
+
+  it('explain themselves when there is nothing', () => {
+    expect(render(<WeeklySetsChart rows={[]} />).textContent).toContain('Nothing trained');
+    const empty = fatigueHistory(fatigueStimuli(EMPTY, lookup), last);
+    expect(render(<FatigueHistoryChart history={empty} />).textContent).toContain('Nothing trained');
   });
 });
