@@ -66,7 +66,7 @@ function Header() {
             <a
               key={n.href}
               href={n.href}
-              className="rounded-md px-3 py-1.5 text-sm font-medium text-dim transition-colors hover:text-ink"
+              className="whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium text-dim transition-colors hover:text-ink"
             >
               {n.label}
             </a>
@@ -74,7 +74,7 @@ function Header() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
-          <span className="hud-label hidden lg:inline">local only</span>
+          <span className="hud-label hidden whitespace-nowrap lg:inline">local only</span>
           <ThemeControl size="sm" />
           <LinkButton href={APP} variant="primary" size="sm">
             Open the app
@@ -91,6 +91,7 @@ function Footer() {
     [GITHUB, 'GitHub'],
     [DOCS + 'README.md', 'Docs'],
     [DOCS + 'LICENSE', 'MIT'],
+    [DOCS + 'NOTICE.md', 'Body outlines: MuscleMap (MIT)'],
   ];
   return (
     <footer className="mx-auto w-full max-w-[100rem] px-4 pb-10 pt-6 sm:px-6">
@@ -158,8 +159,9 @@ function Hero() {
           <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-dim sm:text-lg">
             StrongInsight turns a Strong CSV export into the analysis the app itself never shows
             you &mdash; real volume with bodyweight counted, the training split it can recover from
-            sessions that are all just called &ldquo;Evening Workout&rdquo;, and weaknesses that
-            have to survive a significance test before you ever see them.
+            sessions that are all just called &ldquo;Evening Workout&rdquo;, weaknesses that have
+            to survive a significance test before you ever see them, and which muscles are actually
+            ready to train today.
           </p>
 
           {/*
@@ -204,12 +206,17 @@ function Hero() {
          * Four figures, all checkable. "0 network calls" is the load-bearing one:
          * it is the entire privacy claim, and src/network.test.ts is what keeps
          * it true rather than aspirational.
+         *
+         * Tests: what `npm test` runs on a fresh clone; the suites that need a real
+         * export are skipped there and not counted. Charts: the exported chart
+         * components in src/viz, not counting the card wrappers (CalendarCard,
+         * DensityCard, SplitPanel) or the frequency table.
          */}
         <div className="mt-6 grid grid-cols-2 gap-2 lg:grid-cols-4">
           <Tile label="Network calls in src/" value="0" tone="accent" hint="there is no backend" />
           <Tile label="Runtime dependencies" value="5" hint="no charting library" />
-          <Tile label="Tests" value="360" hint="across 17 files" />
-          <Tile label="Charts" value="14" hint="hand-rolled SVG" />
+          <Tile label="Tests" value="517" hint="across 34 files" />
+          <Tile label="Charts" value="22" hint="hand-rolled, no chart library" />
         </div>
       </div>
     </section>
@@ -260,7 +267,7 @@ function Why() {
 function Tour() {
   return (
     <Section id="tour">
-      <Heading eyebrow="The app" title="Five places to look" />
+      <Heading eyebrow="The app" title="Six places to look" />
 
       <div className="mt-12 space-y-16 sm:space-y-24">
         <FeatureRow
@@ -288,7 +295,8 @@ function Tour() {
             Below that: the recovered split, volume over time stacked by muscle or movement pattern,
             a balance chart plotted as log2 of the ratio so equal-and-opposite imbalances look
             equal, and a muscle heatmap that defaults to row-relative &mdash; on absolute volume it
-            only ever says &ldquo;legs are heavy&rdquo;.
+            only ever says &ldquo;legs are heavy&rdquo;. Any section folds away from its heading,
+            and stays folded next time.
           </p>
         </FeatureRow>
 
@@ -322,6 +330,49 @@ function Tour() {
         </FeatureRow>
 
         <FeatureRow
+          eyebrow="Recovery"
+          title="What is ready to train, and what is not"
+          href={APP + '#recovery'}
+          cta="Check your recovery"
+          shot={
+            <div className="space-y-3">
+              <Shot
+                src="/shots/recovery-light.png"
+                darkSrc="/shots/recovery-dark.png"
+                alt="Recovery"
+                width={2400}
+                height={1680}
+              />
+              <Shot
+                src="/shots/recovery-history-light.png"
+                darkSrc="/shots/recovery-history-dark.png"
+                alt="Weekly volume and fatigue history"
+                width={2400}
+                height={1680}
+                className="lg:ml-16"
+              />
+            </div>
+          }
+        >
+          <p>
+            Push, pull, legs and core, each marked ready or &ldquo;in ~14 h&rdquo; and judged by its
+            main movers, so forearms tired from deadlift grip do not take pull day off the table.
+            Below that, a front and back body map coloured by how fatigued each muscle is, a
+            ready-in time for every one, and a +24/48/72 h forecast for planning the week.
+          </p>
+          <p>
+            Fatigue is counted in hard sets, not tonnage. How close each set was to failure comes
+            from your RPE, or, since Strong rarely records one, from your own recent best on that
+            lift. It decays faster for small muscles, and a routine week counts as routine rather
+            than as a spike. Hard sets per muscle are set against the 10&ndash;20 a week commonly
+            cited for growth, and six weeks of history ring every session you started before a
+            muscle had recovered. It says plainly that it is a model: sleep and food are not in
+            your export.
+          </p>
+        </FeatureRow>
+
+        <FeatureRow
+          flip
           eyebrow="Exercises"
           title="Every lift, and then one lift in full"
           href={APP + '#exercises'}
@@ -351,7 +402,6 @@ function Tour() {
         </FeatureRow>
 
         <FeatureRow
-          flip
           eyebrow="Compare"
           title="Two people, and what does not compare"
           href={APP + '#compare'}
@@ -381,6 +431,7 @@ function Tour() {
         </FeatureRow>
 
         <FeatureRow
+          flip
           eyebrow="Import and tagging"
           title="Nothing is silently dropped"
           href={APP + '#import'}
@@ -427,7 +478,10 @@ const PRIVACY: [string, string][] = [
     'A second person’s data is stored the same way yours is.',
     'Their export, name and bodyweight go into the same local database, are never uploaded, and are deleted by Forget or by Reset everything.',
   ],
-  ['Reset everything means everything.', 'One button in Settings drops every stored key.'],
+  [
+    'Reset everything means everything.',
+    'One button in Settings drops every stored record. Only two display preferences, the theme and which sections you folded, stay in this browser.',
+  ],
 ];
 
 function Privacy() {
@@ -478,10 +532,10 @@ function Privacy() {
 const STACK = [
   { label: 'Framework', value: 'React 19', hint: 'Vite 6, TypeScript strict' },
   { label: 'Runtime deps', value: '5', hint: 'papaparse, idb-keyval, zod, react, react-dom' },
-  { label: 'Charts', value: '14', hint: 'hand-rolled SVG, no charting library' },
+  { label: 'Charts', value: '22', hint: 'hand-rolled, no charting library' },
   { label: 'Styling', value: 'Tailwind v4', hint: 'semantic tokens, no hex in src/' },
   { label: 'Storage', value: 'IndexedDB', hint: 'Zod-validated, degrades rather than throws' },
-  { label: 'Tests', value: '360', hint: 'across 17 files, green in CI on every push' },
+  { label: 'Tests', value: '517', hint: 'across 34 files, green in CI on every push' },
 ];
 
 const DOC_LINKS: [string, string][] = [
